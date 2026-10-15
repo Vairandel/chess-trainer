@@ -14,7 +14,18 @@ import { Game, splitPgnGames, type MoveNode, type Ply, type PromotionPiece } fro
 import { EvalGraph, type GraphPoint } from './graph';
 import { Library, type SavedGame } from './library';
 import { formatScore, LABELS, reviewMove, summarize, winChance, type MoveReview, type PositionEval } from './review';
-import { ACCENTS, applySettings, BOARDS, boardImage, DEFAULTS, loadSettings, saveSettings, type Settings } from './settings';
+import {
+  ACCENTS,
+  applySettings,
+  BOARDS,
+  boardImage,
+  DEFAULTS,
+  loadSettings,
+  PIECE_SETS,
+  pieceUrl,
+  saveSettings,
+  type Settings,
+} from './settings';
 import { explainMove } from './teach';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -231,6 +242,19 @@ function renderSettings(): void {
   $('board-choice').replaceChildren(
     ...BOARDS.map(b => swatch(b.id, b.name, b.light, b.dark)),
     swatch('custom', 'Custom', settings.customBoard.light, settings.customBoard.dark),
+  );
+  $('piece-choice').replaceChildren(
+    ...PIECE_SETS.map(p => {
+      // Classic is embedded in chessground's CSS, so its sample uses chessground's piece elements
+      const sample =
+        p.id === 'cburnett'
+          ? h('span', 'piece-sample cg-wrap classic-sample', h('piece', 'knight white'), h('piece', 'king black'))
+          : h('span', 'piece-sample', img(pieceUrl(p.id, 'wN')), img(pieceUrl(p.id, 'bK')));
+      const btn = h('button', 'swatch', sample, h('span', 'swatch-name', p.name));
+      btn.setAttribute('aria-pressed', String(settings.pieces === p.id));
+      btn.addEventListener('click', () => changeSettings({ pieces: p.id }));
+      return btn;
+    }),
   );
   $('custom-colors').hidden = settings.board !== 'custom';
   $<HTMLInputElement>('custom-light').value = settings.customBoard.light;
@@ -613,6 +637,14 @@ function keepCurrentMoveVisible(list: HTMLElement): void {
   const bottom = top + current.offsetHeight;
   if (top < list.scrollTop) list.scrollTop = top - 4;
   else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight + 4;
+}
+
+/** A decorative image (its meaning is given by the text next to it). */
+function img(src: string): HTMLImageElement {
+  const i = document.createElement('img');
+  i.src = src;
+  i.alt = '';
+  return i;
 }
 
 /** PGN date "2026.10.01" → "2026-10-01"; unknown parts ("1858.??.??") are dropped. */

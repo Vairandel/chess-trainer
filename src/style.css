@@ -79,6 +79,20 @@
   background-color: var(--sq-light, #f0d9b5);
   background-image: var(--board-image);
 }
+/* piece sets other than the built-in one (set from Settings); .classic-sample keeps the built-in look */
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.king.white { background-image: var(--piece-wK); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.queen.white { background-image: var(--piece-wQ); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.rook.white { background-image: var(--piece-wR); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.bishop.white { background-image: var(--piece-wB); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.knight.white { background-image: var(--piece-wN); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.pawn.white { background-image: var(--piece-wP); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.king.black { background-image: var(--piece-bK); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.queen.black { background-image: var(--piece-bQ); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.rook.black { background-image: var(--piece-bR); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.bishop.black { background-image: var(--piece-bB); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.knight.black { background-image: var(--piece-bN); }
+:root[data-pieces] .cg-wrap:not(.classic-sample) piece.pawn.black { background-image: var(--piece-bP); }
+
 /* coordinates take the color of the other square type, so they stay readable on any board */
 .cg-wrap.orientation-white .ranks :nth-child(odd),
 .cg-wrap.orientation-white .files :nth-child(even),
@@ -319,6 +333,24 @@ button.primary:hover:not(:disabled) {
 .accent-dot[aria-pressed='true'] {
   outline: 3px solid var(--accent);
   outline-offset: 1px;
+}
+.piece-sample {
+  display: flex;
+  height: 40px;
+}
+.piece-sample img,
+.piece-sample piece {
+  width: 40px;
+  height: 40px;
+}
+/* chessground places pieces absolutely on its 8×8 grid; in a sample they sit side by side */
+.piece-sample.cg-wrap {
+  position: static;
+}
+.piece-sample.cg-wrap piece {
+  position: static;
+  display: block;
+  background-size: cover;
 }
 .custom-colors {
   display: flex;

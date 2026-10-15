@@ -6,6 +6,28 @@ export interface Settings {
   customBoard: { light: string; dark: string };
   accent: string;
   coordinates: boolean;
+  /** A piece set id from PIECE_SETS. */
+  pieces: string;
+}
+
+/** Piece sets: cburnett ships with chessground; the others are in public/pieces (see CREDITS.md there). */
+export const PIECE_SETS: { id: string; name: string }[] = [
+  { id: 'cburnett', name: 'Classic' },
+  { id: 'merida', name: 'Merida' },
+  { id: 'chessnut', name: 'Chessnut' },
+  { id: 'mpchess', name: 'MPChess' },
+  { id: 'fantasy', name: 'Fantasy' },
+  { id: 'celtic', name: 'Celtic' },
+  { id: 'spatial', name: 'Spatial' },
+  { id: 'rhosgfx', name: 'RhosGFX' },
+  { id: 'pixel', name: 'Pixel' },
+];
+
+const PIECE_FILES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'];
+
+/** URL of one piece image, e.g. pieceUrl('merida', 'wN'). Not used for cburnett, which chessground embeds. */
+export function pieceUrl(set: string, file: string): string {
+  return `${import.meta.env.BASE_URL}pieces/${set}/${file}.svg`;
 }
 
 export const BOARDS: { id: string; name: string; light: string; dark: string }[] = [
@@ -34,6 +56,7 @@ export const DEFAULTS: Settings = {
   customBoard: { light: '#f0d9b5', dark: '#b58863' },
   accent: 'green',
   coordinates: true,
+  pieces: 'cburnett',
 };
 
 export function loadSettings(): Settings {
@@ -81,4 +104,13 @@ export function applySettings(settings: Settings): void {
   const accent = ACCENTS.find(a => a.id === settings.accent) ?? ACCENTS[0];
   root.style.setProperty('--accent-l', accent.light);
   root.style.setProperty('--accent-d', accent.dark);
+
+  // Another piece set: data-pieces switches on the CSS rules that read --piece-wK, --piece-bN, ...
+  const set = PIECE_SETS.some(p => p.id === settings.pieces) ? settings.pieces : 'cburnett';
+  if (set === 'cburnett') {
+    delete root.dataset.pieces;
+  } else {
+    root.dataset.pieces = set;
+    for (const f of PIECE_FILES) root.style.setProperty(`--piece-${f}`, `url("${pieceUrl(set, f)}")`);
+  }
 }

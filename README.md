@@ -21,7 +21,8 @@ npm run build    # production files in dist/
 - `src/teach.ts`: the plain-English explanation of each move.
 - `src/graph.ts`: the evaluation graph.
 - `src/library.ts`: "My games", saved with their analysis in the browser's localStorage.
-- `src/settings.ts`: appearance settings (theme, board colors, accent, coordinates).
+- `src/settings.ts`: appearance settings (theme, board colors, pieces, accent, coordinates).
+- `public/pieces/`: extra piece sets from Lichess, with their authors and licenses in `CREDITS.md`.
 - `public/engine/`: Stockfish 19 builds from [stockfish.js](https://github.com/nmrugg/stockfish.js) (lite WASM + asm.js fallback).
 
 Tests (`npm test`) cover the rules, PGN formats, engine protocol, grading and explanations. The engine and explanation tests run the real Stockfish build under Node.
