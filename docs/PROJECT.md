@@ -57,7 +57,7 @@ flowchart TD
 
 ## 4. Roadmap & Status
 
-- [ ] **Phase 1 — Interactive board**: move validation, all special moves, PGN import, navigation
+- [ ] **Phase 1 — Interactive board**: move validation, all special moves, PGN import, navigation — *built, waiting for Randi's approval*
 - [ ] **Phase 2 — Game analysis**: per-move evaluation, comments on every move, eval graph
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
@@ -85,4 +85,4 @@ Every move gets annotations from **three layers**:
 
 ---
 
-*Last updated: Phase 0 (documentation) — ready for Phase 1.*
+*Last updated: 2026-10-15 — Phase 1 built (Vite + TypeScript, chess.js, @lichess-org/chessground), waiting for approval.*

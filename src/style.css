@@ -1,0 +1,440 @@
+:root {
+  --bg: #f4f1ec;
+  --surface: #ffffff;
+  --surface-2: #ece7df;
+  --text: #24211d;
+  --muted: #6f685e;
+  --border: #d8d1c6;
+  --accent: #6f8f3a;
+  --accent-text: #ffffff;
+  --current: #e9d9a8;
+  --danger: #b3261e;
+  --comment-bg: #f6efd9;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1b19;
+    --surface: #272421;
+    --surface-2: #322e2a;
+    --text: #ece7df;
+    --muted: #a39b8f;
+    --border: #3f3a34;
+    --accent: #86a84a;
+    --accent-text: #14130f;
+    --current: #5a4a22;
+    --danger: #f2817a;
+    --comment-bg: #2f2a20;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+button,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--accent);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.top {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.top h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+/* ---------- layout ---------- */
+
+.layout {
+  --board: min(calc(100vh - 150px), calc(100vw - 32px), 720px);
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 16px;
+}
+
+.board-col {
+  width: var(--board);
+  flex: none;
+}
+.board-wrap {
+  width: var(--board);
+  height: var(--board);
+}
+#board {
+  width: 100%;
+  height: 100%;
+}
+
+/* Coordinates drawn inside the edge squares, so they stay readable and never stick out of the board. */
+.cg-wrap coords {
+  font-size: clamp(9px, calc(var(--board) / 48), 14px);
+  font-weight: 700;
+  opacity: 1;
+}
+.cg-wrap coords.ranks {
+  left: 0;
+  top: 0;
+  width: 12.5%;
+}
+.cg-wrap coords.ranks coord {
+  transform: none;
+  padding: 2px 4px;
+}
+.cg-wrap coords.files {
+  left: 0;
+  bottom: 0;
+  height: auto;
+  text-align: right;
+}
+.cg-wrap coords.files coord {
+  flex: 1 1 0;
+  padding: 0 4px 1px;
+}
+
+.player {
+  font-weight: 600;
+  padding: 4px 2px;
+  min-height: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel {
+  width: 320px;
+  height: calc(var(--board) + 60px);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    --board: min(calc(100vw - 32px), 720px);
+    flex-direction: column;
+    align-items: center;
+  }
+  .panel {
+    width: var(--board);
+    height: auto;
+    min-height: 0;
+  }
+  .moves {
+    max-height: 240px;
+  }
+}
+
+/* ---------- panel ---------- */
+
+.status {
+  font-weight: 650;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #888;
+  flex: none;
+}
+.status.white-turn::before {
+  background: #fff;
+}
+.status.black-turn::before {
+  background: #222;
+}
+.status.check {
+  color: var(--danger);
+}
+.status.over {
+  color: var(--accent);
+}
+.status.over::before {
+  display: none;
+}
+
+.game-info {
+  color: var(--muted);
+  font-size: 13px;
+}
+.game-info:empty {
+  display: none;
+}
+
+.moves {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--surface-2);
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.moves li {
+  display: grid;
+  grid-template-columns: 44px 1fr 1fr;
+  align-items: center;
+}
+.moves li.empty {
+  display: block;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.moves .num {
+  color: var(--muted);
+  text-align: right;
+  padding-right: 8px;
+}
+.moves .move {
+  border: 0;
+  background: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  text-align: left;
+  font-weight: 500;
+}
+.moves .move:hover {
+  background: var(--surface);
+}
+.moves .move.current {
+  background: var(--current);
+  font-weight: 700;
+}
+.moves .move.has-comment::after {
+  content: ' 💬';
+  font-size: 11px;
+}
+.moves .placeholder {
+  color: var(--muted);
+  cursor: default;
+}
+
+.comment {
+  background: var(--comment-bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 14px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.nav {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.nav button {
+  font-size: 16px;
+  padding: 6px 0;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.actions button {
+  padding: 8px 4px;
+  font-size: 14px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (hover: none) {
+  .hint {
+    display: none;
+  }
+}
+
+/* ---------- dialogs ---------- */
+
+dialog {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 20px;
+  width: min(560px, calc(100vw - 32px));
+}
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+dialog h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+dialog label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+dialog textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--bg);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+}
+dialog textarea.drag {
+  outline: 2px dashed var(--accent);
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.file-btn {
+  display: inline-block !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.file-btn:hover {
+  background: var(--surface-2);
+}
+.file-btn input {
+  display: none;
+}
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.game-pick select {
+  width: 100%;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.error {
+  color: var(--danger);
+  min-height: 1.5em;
+  margin: 8px 0;
+  font-size: 14px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.promo-dialog {
+  width: fit-content;
+  padding: 12px;
+}
+.promo {
+  display: flex;
+  gap: 8px;
+  /* chessground's .cg-wrap sizing must not apply here */
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+}
+.promo-piece {
+  width: 72px;
+  height: 72px;
+  padding: 4px;
+  background: var(--surface-2);
+}
+.promo .promo-piece piece {
+  /* chessground places board pieces absolutely on an 8×8 grid; here they sit inside a button */
+  position: static;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+}
+
+/* ---------- toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 20px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+  max-width: calc(100vw - 32px);
+}
+.toast.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
