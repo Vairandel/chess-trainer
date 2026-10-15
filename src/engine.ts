@@ -168,6 +168,29 @@ export class Engine {
   }
 }
 
+/**
+ * Starts Stockfish in a worker: the WebAssembly build, or the slower asm.js build if that fails.
+ * Rejects if neither starts.
+ */
+export async function loadStockfish(baseUrl: string): Promise<{ engine: Engine; name: string }> {
+  const builds = [
+    { file: 'stockfish-19-lite-single.js', name: 'Stockfish 19 (lite)' },
+    { file: 'stockfish-19-asm.js', name: 'Stockfish 19 (compatibility mode, slower)' },
+  ];
+  for (const build of builds) {
+    let engine: Engine | undefined;
+    try {
+      engine = new Engine(workerTransport(baseUrl + build.file));
+      await engine.whenReady();
+      return { engine, name: build.name };
+    } catch (err) {
+      console.warn(`Could not start ${build.file}:`, err);
+      engine?.terminate();
+    }
+  }
+  throw new Error('The engine could not start in this browser.');
+}
+
 /** Runs a stockfish.js build in a Web Worker. */
 export function workerTransport(url: string): UciTransport {
   const worker = new Worker(url);

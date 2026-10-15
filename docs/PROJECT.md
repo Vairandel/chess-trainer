@@ -63,6 +63,8 @@ flowchart TD
   - Feedback round 2: grade badges on the moved piece (Lichess glyphs), explanation shown first.
   - Variations: the game is a move tree. Playing a different move starts a variation instead of erasing the game; PGN variations, comments and NAGs are read and written (own movetext parser, chess.js validates each move); "Play the … line" adds the engine's line as a variation; "Make main line" and "Delete from here"; every line is analyzed; variations are saved with the game. Accuracy counts the main line only.
 - [x] **Theme editor** (between Phase 2 and 3): Settings page (⚙) with System / Light / Dark theme, six board color presets plus custom square colors, five accent colors, nine piece sets (Lichess sets with free licenses only, credited in `public/pieces/CREDITS.md`), coordinates on/off, live preview. Saved in the browser. *Approved 2026-10-15.*
+- [ ] **Phase 3A — Play against the computer**: strength 800–1800 (own weakening: depth by level + a random choice among Stockfish's 6 best moves, weighted by how much each loses; Stockfish's UCI_Elo stops at ~1320), choose your color, hint / take back / resign, game saved during play, "Review this game" saves it to My games and analyzes it. *Built, waiting for Randi's approval.*
+- [ ] **Phase 3B — Study library**: traps, openings, legendary games with a comment on every move.
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 

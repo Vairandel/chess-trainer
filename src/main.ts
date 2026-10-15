@@ -9,7 +9,8 @@ import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { Analyzer, type AnalyzedMove } from './analyzer';
 import { moveBadge } from './badges';
-import { Engine, workerTransport } from './engine';
+import { $, askPromotion, h, img, toast } from './dom';
+import { loadStockfish, type Engine } from './engine';
 import { Game, splitPgnGames, type MoveNode, type Ply, type PromotionPiece } from './game';
 import { EvalGraph, type GraphPoint } from './graph';
 import { Library, type SavedGame } from './library';
@@ -26,9 +27,8 @@ import {
   saveSettings,
   type Settings,
 } from './settings';
+import { PlayView } from './play';
 import { explainMove } from './teach';
-
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 let settings = loadSettings();
 applySettings(settings);
@@ -58,35 +58,26 @@ const ENGINE_BASE = `${import.meta.env.BASE_URL}engine/`;
 let engineState: 'loading' | 'ready' | 'failed' = 'loading';
 let analyzing = false;
 
-/** Starts Stockfish (WebAssembly), falling back to the slower asm.js build if that fails. */
+/** Starts the analysis engine and reports how that went. */
 async function startEngine(): Promise<Engine> {
-  const builds = [
-    { file: 'stockfish-19-lite-single.js', name: 'Stockfish 19 (lite)' },
-    { file: 'stockfish-19-asm.js', name: 'Stockfish 19 (compatibility mode, slower)' },
-  ];
-  for (const build of builds) {
-    let engine: Engine | undefined;
-    try {
-      engine = new Engine(workerTransport(ENGINE_BASE + build.file));
-      await engine.whenReady();
-      engineState = 'ready';
-      $('engine-status').textContent = `Engine: ${build.name}`;
-      render();
-      return engine;
-    } catch (err) {
-      console.warn(`Could not start ${build.file}:`, err);
-      engine?.terminate();
-    }
+  try {
+    const { engine, name } = await loadStockfish(ENGINE_BASE);
+    engineState = 'ready';
+    $('engine-status').textContent = `Engine: ${name}`;
+    render();
+    return engine;
+  } catch (err) {
+    engineState = 'failed';
+    $('engine-status').textContent = 'The engine could not start in this browser, so analysis is unavailable.';
+    $('engine-status').classList.add('error');
+    render();
+    throw err;
   }
-  engineState = 'failed';
-  $('engine-status').textContent = 'The engine could not start in this browser, so analysis is unavailable.';
-  $('engine-status').classList.add('error');
-  render();
-  throw new Error('No engine');
 }
 
 // Saved analyses can be shown while the engine is still loading.
-const analyzer = new Analyzer(startEngine());
+const engineReady = startEngine();
+const analyzer = new Analyzer(engineReady);
 
 function depth(): number {
   return Number($<HTMLSelectElement>('depth').value);
@@ -186,15 +177,17 @@ function requestLiveEvaluation(): void {
 
 // ---------- views ----------
 
-type View = 'games' | 'review' | 'settings';
+type View = 'games' | 'review' | 'play' | 'settings';
+const VIEWS: View[] = ['games', 'review', 'play', 'settings'];
 let currentView: View = 'games';
 
+/** The Play page has its own board and engine; both are created the first time it is opened. */
+let playView: PlayView | undefined;
+
 function route(): void {
-  const hash = location.hash.slice(1);
-  currentView = hash === 'review' || hash === 'settings' ? hash : 'games';
-  $('view-games').hidden = currentView !== 'games';
-  $('view-review').hidden = currentView !== 'review';
-  $('view-settings').hidden = currentView !== 'settings';
+  const hash = location.hash.slice(1) as View;
+  currentView = VIEWS.includes(hash) ? hash : 'games';
+  for (const v of VIEWS) $(`view-${v}`).hidden = currentView !== v;
   document.querySelectorAll<HTMLAnchorElement>('a[data-view]').forEach(a => {
     if (a.dataset.view === currentView) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -205,6 +198,13 @@ function route(): void {
     render();
   } else if (currentView === 'settings') {
     renderSettings();
+  } else if (currentView === 'play') {
+    playView ??= new PlayView({
+      loadEngine: () => loadStockfish(ENGINE_BASE).then(r => r.engine),
+      coordinates: settings.coordinates,
+      onReview: reviewPlayedGame,
+    });
+    playView.show();
   } else {
     renderLibrary();
   }
@@ -225,6 +225,7 @@ function changeSettings(patch: Partial<Settings>): void {
     board.redrawAll();
     preview?.set({ coordinates: settings.coordinates });
     preview?.redrawAll();
+    playView?.setCoordinates(settings.coordinates);
   }
   renderSettings();
 }
@@ -318,6 +319,31 @@ function openSaved(saved: SavedGame): void {
   game.goTo(0);
   if (location.hash === '#review') route();
   else location.hash = '#review';
+}
+
+/** A game finished on the Play page: save it to My games, open it in Review and analyze it. */
+function reviewPlayedGame(pgn: string): void {
+  const g = new Game();
+  g.loadPgn(pgn);
+  let saved: SavedGame;
+  try {
+    [saved] = library.add([
+      {
+        pgn,
+        white: g.headers.White ?? 'White',
+        black: g.headers.Black ?? 'Black',
+        result: g.headers.Result ?? '*',
+        date: formatDate(g.headers.Date),
+        event: g.headers.Event,
+        moves: g.plies.length,
+      },
+    ]);
+  } catch (err) {
+    toast((err as Error).message);
+    return;
+  }
+  openSaved(saved);
+  engineReady.then(() => analyzeGame()).catch(() => {}); // a failed engine is already reported on the page
 }
 
 // ---------- My games ----------
@@ -639,25 +665,9 @@ function keepCurrentMoveVisible(list: HTMLElement): void {
   else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight + 4;
 }
 
-/** A decorative image (its meaning is given by the text next to it). */
-function img(src: string): HTMLImageElement {
-  const i = document.createElement('img');
-  i.src = src;
-  i.alt = '';
-  return i;
-}
-
 /** PGN date "2026.10.01" → "2026-10-01"; unknown parts ("1858.??.??") are dropped. */
 function formatDate(date: string | undefined): string | undefined {
   return date?.replace(/\./g, '-').replace(/-\?\?/g, '') || undefined;
-}
-
-/** Builds an element with text content (never HTML, so PGN text can't inject markup). */
-function h(tag: string, className: string, ...children: (Node | string)[]): HTMLElement {
-  const e = document.createElement(tag);
-  if (className) e.className = className;
-  e.append(...children);
-  return e;
 }
 
 function renderLesson(node: MoveNode, review: MoveReview | undefined, lesson: ReturnType<typeof explainMove> | undefined): void {
@@ -810,33 +820,6 @@ function playEngineLine(from: MoveNode, pv: string[]): void {
   toast('Engine line added as a variation. Press ▶ to play it move by move.');
 }
 
-function askPromotion(color: Color): Promise<PromotionPiece | undefined> {
-  const dialog = $<HTMLDialogElement>('promo-dialog');
-  const box = $('promo-choices');
-  const roles: [PromotionPiece, string][] = [['q', 'queen'], ['r', 'rook'], ['b', 'bishop'], ['n', 'knight']];
-  return new Promise(resolve => {
-    let choice: PromotionPiece | undefined;
-    box.replaceChildren(
-      ...roles.map(([p, role]) => {
-        const btn = document.createElement('button');
-        btn.className = 'promo-piece';
-        btn.setAttribute('aria-label', role);
-        btn.title = role[0].toUpperCase() + role.slice(1);
-        const piece = document.createElement('piece');
-        piece.className = `${role} ${color}`;
-        btn.append(piece);
-        btn.addEventListener('click', () => {
-          choice = p;
-          dialog.close();
-        });
-        return btn;
-      }),
-    );
-    dialog.addEventListener('close', () => resolve(choice), { once: true });
-    dialog.showModal();
-  });
-}
-
 /** Goes to a node, or to the n-th position of the main line. */
 function goTo(target: MoveNode | number): void {
   game.goTo(target);
@@ -941,15 +924,6 @@ document.addEventListener('keydown', e => {
     action();
   }
 });
-
-let toastTimer: number | undefined;
-function toast(message: string): void {
-  const el = $('toast');
-  el.textContent = message;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => el.classList.remove('show'), 3000);
-}
 
 window.addEventListener('hashchange', route);
 // the last live evaluations are still waiting in persistSoon's timer

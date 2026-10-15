@@ -20,11 +20,61 @@
         <a href="#games" data-view="games">My games</a>
         <a href="#review" data-view="review">Review</a>
         <span class="soon" title="Coming in Phase 3">Study <small>soon</small></span>
-        <span class="soon" title="Coming in Phase 3">Play <small>soon</small></span>
+        <a href="#play" data-view="play">Play</a>
         <span class="soon" title="Coming in Phase 4">Puzzles <small>soon</small></span>
       </nav>
       <a class="settings-link" href="#settings" data-view="settings" aria-label="Settings" title="Settings">⚙</a>
     </header>
+
+    <!-- ========== Play ========== -->
+    <main class="view layout play-view" id="view-play" hidden>
+      <section class="board-col">
+        <div class="player player-top" id="play-top"></div>
+        <div class="board-row">
+          <div class="board-wrap"><div id="play-board"></div></div>
+        </div>
+        <div class="player player-bottom" id="play-bottom"></div>
+      </section>
+
+      <aside class="panel">
+        <section class="play-setup" id="play-setup" aria-labelledby="play-setup-title">
+          <h2 id="play-setup-title">Play against the computer</h2>
+          <label for="play-elo" class="setup-label">Computer strength</label>
+          <input type="range" id="play-elo" min="800" max="1800" step="100" value="1200" />
+          <div class="elo-label" id="play-elo-label"></div>
+          <p class="muted small">Approximate levels: the computer makes human-like mistakes, more often at lower levels.</p>
+
+          <fieldset class="setting">
+            <legend>Your color</legend>
+            <div class="segmented">
+              <label><input type="radio" name="play-color" value="w" checked /> White</label>
+              <label><input type="radio" name="play-color" value="random" /> Random</label>
+              <label><input type="radio" name="play-color" value="b" /> Black</label>
+            </div>
+          </fieldset>
+          <button class="primary start-btn" id="play-start">Start game</button>
+          <p class="muted small">No clock: take your time. Finished games can be reviewed with the engine.</p>
+        </section>
+
+        <section class="play-game" id="play-game" hidden>
+          <div class="status" id="play-status" role="status" aria-live="polite"></div>
+          <ol class="moves" id="play-moves" aria-label="Moves"></ol>
+          <div class="play-result" id="play-result" hidden>
+            <button class="primary" id="play-review">Review this game</button>
+            <button id="play-again">New game</button>
+          </div>
+          <div class="play-actions" id="play-actions">
+            <button id="play-hint" title="Show the best move (counted)">💡 Hint</button>
+            <button id="play-takeback" title="Take back your last move">↶ Take back</button>
+            <button id="play-resign" title="Resign the game">⚑ Resign</button>
+          </div>
+          <div class="play-footer">
+            <span class="muted small" id="play-hints-used"></span>
+            <button class="link-btn" id="play-new">New game</button>
+          </div>
+        </section>
+      </aside>
+    </main>
 
     <!-- ========== Settings ========== -->
     <main class="view settings-view" id="view-settings" hidden>
