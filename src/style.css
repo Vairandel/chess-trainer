@@ -5,7 +5,8 @@
   --text: #24211d;
   --muted: #6f685e;
   --border: #d8d1c6;
-  --accent: #6f8f3a;
+  /* the accent color can be changed in Settings, which sets --accent-l / --accent-d */
+  --accent: var(--accent-l, #6f8f3a);
   --accent-text: #ffffff;
   --current: #e9d9a8;
   --danger: #b3261e;
@@ -23,15 +24,39 @@
   color-scheme: light;
 }
 
+/* Dark colors apply when chosen in Settings (data-theme="dark"), or when the setting is
+   "System" and the device is in dark mode. The two blocks must stay identical. */
+:root[data-theme='dark'] {
+  --bg: #1d1b19;
+  --surface: #272421;
+  --surface-2: #322e2a;
+  --text: #ece7df;
+  --muted: #a39b8f;
+  --border: #3f3a34;
+  --accent: var(--accent-d, #86a84a);
+  --accent-text: #14130f;
+  --current: #5a4a22;
+  --danger: #f2817a;
+  --comment-bg: #2f2a20;
+  --best: #4cc25e;
+  --inaccuracy: #56b4e9;
+  --mistake: #e69f00;
+  --blunder: #ef6b6b;
+  --graph-bg: #2b2825;
+  --graph-white: #d9d4cc;
+  --graph-black: #141210;
+  --graph-line: #8f877c;
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #1d1b19;
     --surface: #272421;
     --surface-2: #322e2a;
     --text: #ece7df;
     --muted: #a39b8f;
     --border: #3f3a34;
-    --accent: #86a84a;
+    --accent: var(--accent-d, #86a84a);
     --accent-text: #14130f;
     --current: #5a4a22;
     --danger: #f2817a;
@@ -46,6 +71,26 @@
     --graph-line: #8f877c;
     color-scheme: dark;
   }
+}
+
+/* ---------- board colors (set from Settings) ---------- */
+
+.cg-wrap cg-board {
+  background-color: var(--sq-light, #f0d9b5);
+  background-image: var(--board-image);
+}
+/* coordinates take the color of the other square type, so they stay readable on any board */
+.cg-wrap.orientation-white .ranks :nth-child(odd),
+.cg-wrap.orientation-white .files :nth-child(even),
+.cg-wrap.orientation-black .ranks :nth-child(even),
+.cg-wrap.orientation-black .files :nth-child(odd) {
+  color: var(--sq-dark, #b58863);
+}
+.cg-wrap.orientation-white .ranks :nth-child(even),
+.cg-wrap.orientation-white .files :nth-child(odd),
+.cg-wrap.orientation-black .ranks :nth-child(odd),
+.cg-wrap.orientation-black .files :nth-child(even) {
+  color: var(--sq-light, #f0d9b5);
 }
 
 * {
@@ -170,6 +215,170 @@ button.primary:hover:not(:disabled) {
   .tabs .soon {
     padding: 12px 10px 10px;
   }
+}
+
+.settings-link {
+  margin-left: auto;
+  padding: 10px 4px 8px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+.settings-link:hover,
+.settings-link[aria-current='page'] {
+  color: var(--text);
+}
+.settings-link[aria-current='page'] {
+  border-bottom-color: var(--accent);
+}
+@media (max-width: 600px) {
+  .settings-link {
+    padding-right: 12px;
+  }
+}
+
+/* ---------- Settings ---------- */
+
+.settings-view {
+  display: grid;
+  grid-template-columns: minmax(0, 460px) minmax(0, 360px);
+  justify-content: center;
+  align-items: start;
+  gap: 24px;
+  padding: 24px 16px;
+}
+@media (max-width: 860px) {
+  .settings-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .preview-card {
+    order: -1;
+  }
+}
+.setting {
+  border: 0;
+  margin: 0 0 18px;
+  padding: 0;
+}
+.setting legend {
+  font-weight: 650;
+  font-size: 14px;
+  margin-bottom: 8px;
+  padding: 0;
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented label {
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.segmented label + label {
+  border-left: 1px solid var(--border);
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented label:has(input:checked) {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.segmented label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+.swatch {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px;
+  font-size: 12px;
+}
+.swatch-board {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  background-size: 100%;
+  image-rendering: pixelated;
+}
+.swatch[aria-pressed='true'],
+.accent-dot[aria-pressed='true'] {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+.custom-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+.custom-colors label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.custom-colors input[type='color'] {
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.accents {
+  display: flex;
+  gap: 10px;
+}
+/* as specific as the button hover rule, and later in the file, so hovering keeps the colors */
+.accents button.accent-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  padding: 0;
+  border: 1px solid var(--border);
+  /* each accent has a light-theme and a dark-theme shade: show both */
+  background: linear-gradient(135deg, var(--dot-l) 50%, var(--dot-d) 50%);
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.preview-board {
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+#preview-board {
+  width: 100%;
+  height: 100%;
+}
+.preview-sample {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.preview-sample .glyph {
+  font-size: 16px;
 }
 
 /* ---------- My games ---------- */

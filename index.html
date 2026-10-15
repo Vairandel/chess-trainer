@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chess Trainer</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♟</text></svg>" />
+    <script>
+      // Apply the saved light/dark choice before the page paints, so it never flashes the other theme.
+      try {
+        const theme = JSON.parse(localStorage.getItem('chess-trainer:settings') || '{}').theme;
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
     <header class="top">
@@ -16,7 +23,57 @@
         <span class="soon" title="Coming in Phase 3">Play <small>soon</small></span>
         <span class="soon" title="Coming in Phase 4">Puzzles <small>soon</small></span>
       </nav>
+      <a class="settings-link" href="#settings" data-view="settings" aria-label="Settings" title="Settings">⚙</a>
     </header>
+
+    <!-- ========== Settings ========== -->
+    <main class="view settings-view" id="view-settings" hidden>
+      <section class="card" aria-labelledby="appearance-title">
+        <h2 id="appearance-title">Appearance</h2>
+
+        <fieldset class="setting">
+          <legend>Theme</legend>
+          <div class="segmented" id="theme-choice">
+            <label><input type="radio" name="theme" value="system" /> System</label>
+            <label><input type="radio" name="theme" value="light" /> Light</label>
+            <label><input type="radio" name="theme" value="dark" /> Dark</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="setting">
+          <legend>Board colors</legend>
+          <div class="swatches" id="board-choice"></div>
+          <div class="custom-colors" id="custom-colors" hidden>
+            <label>Light squares <input type="color" id="custom-light" /></label>
+            <label>Dark squares <input type="color" id="custom-dark" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="setting">
+          <legend>Accent color</legend>
+          <div class="accents" id="accent-choice"></div>
+        </fieldset>
+
+        <fieldset class="setting">
+          <legend>Board</legend>
+          <label class="check"><input type="checkbox" id="show-coords" /> Show coordinates (a–h, 1–8)</label>
+        </fieldset>
+
+        <button id="reset-settings">Reset to defaults</button>
+      </section>
+
+      <section class="card preview-card" aria-labelledby="preview-title">
+        <h2 id="preview-title">Preview</h2>
+        <div class="preview-board"><div id="preview-board"></div></div>
+        <div class="preview-sample">
+          <button class="primary" tabindex="-1">Analyze game</button>
+          <span class="glyph inaccuracy">?!</span>
+          <span class="glyph mistake">?</span>
+          <span class="glyph blunder">??</span>
+        </div>
+        <p class="muted">Changes apply at once and are saved in this browser.</p>
+      </section>
+    </main>
 
     <!-- ========== My games ========== -->
     <main class="view games-view" id="view-games" hidden>

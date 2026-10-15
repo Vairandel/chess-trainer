@@ -14,9 +14,13 @@ import { Game, splitPgnGames, type MoveNode, type Ply, type PromotionPiece } fro
 import { EvalGraph, type GraphPoint } from './graph';
 import { Library, type SavedGame } from './library';
 import { formatScore, LABELS, reviewMove, summarize, winChance, type MoveReview, type PositionEval } from './review';
+import { ACCENTS, applySettings, BOARDS, boardImage, DEFAULTS, loadSettings, saveSettings, type Settings } from './settings';
 import { explainMove } from './teach';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+let settings = loadSettings();
+applySettings(settings);
 
 const game = new Game();
 const library = new Library();
@@ -25,6 +29,7 @@ let orientation: Color = 'white';
 let currentGameId: string | undefined;
 
 const board: Api = Chessground($('board'), {
+  coordinates: settings.coordinates,
   movable: { free: false, showDests: true, events: { after: onUserMove } },
   draggable: { showGhost: true },
   highlight: { lastMove: true, check: true },
@@ -170,14 +175,16 @@ function requestLiveEvaluation(): void {
 
 // ---------- views ----------
 
-type View = 'games' | 'review';
+type View = 'games' | 'review' | 'settings';
 let currentView: View = 'games';
 
 function route(): void {
-  currentView = location.hash === '#review' ? 'review' : 'games';
+  const hash = location.hash.slice(1);
+  currentView = hash === 'review' || hash === 'settings' ? hash : 'games';
   $('view-games').hidden = currentView !== 'games';
   $('view-review').hidden = currentView !== 'review';
-  document.querySelectorAll<HTMLAnchorElement>('.tabs a').forEach(a => {
+  $('view-settings').hidden = currentView !== 'settings';
+  document.querySelectorAll<HTMLAnchorElement>('a[data-view]').forEach(a => {
     if (a.dataset.view === currentView) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
@@ -185,10 +192,93 @@ function route(): void {
   if (currentView === 'review') {
     board.redrawAll(); // the board was hidden, so its size must be measured again
     render();
+  } else if (currentView === 'settings') {
+    renderSettings();
   } else {
     renderLibrary();
   }
 }
+
+// ---------- Settings ----------
+
+let preview: Api | undefined;
+
+function changeSettings(patch: Partial<Settings>): void {
+  const coordsChanged = 'coordinates' in patch && patch.coordinates !== settings.coordinates;
+  settings = { ...settings, ...patch };
+  saveSettings(settings);
+  applySettings(settings);
+  if (coordsChanged) {
+    // coordinates are drawn when the board is built, so both boards are rebuilt
+    board.set({ coordinates: settings.coordinates });
+    board.redrawAll();
+    preview?.set({ coordinates: settings.coordinates });
+    preview?.redrawAll();
+  }
+  renderSettings();
+}
+
+function renderSettings(): void {
+  document.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach(r => (r.checked = r.value === settings.theme));
+
+  const swatch = (id: string, name: string, light: string, dark: string) => {
+    const btn = h('button', 'swatch', h('span', 'swatch-board'), h('span', 'swatch-name', name));
+    (btn.firstChild as HTMLElement).style.backgroundImage = boardImage(light, dark);
+    btn.setAttribute('aria-pressed', String(settings.board === id));
+    btn.addEventListener('click', () => changeSettings({ board: id }));
+    return btn;
+  };
+  $('board-choice').replaceChildren(
+    ...BOARDS.map(b => swatch(b.id, b.name, b.light, b.dark)),
+    swatch('custom', 'Custom', settings.customBoard.light, settings.customBoard.dark),
+  );
+  $('custom-colors').hidden = settings.board !== 'custom';
+  $<HTMLInputElement>('custom-light').value = settings.customBoard.light;
+  $<HTMLInputElement>('custom-dark').value = settings.customBoard.dark;
+
+  $('accent-choice').replaceChildren(
+    ...ACCENTS.map(a => {
+      const btn = h('button', 'accent-dot');
+      btn.style.setProperty('--dot-l', a.light);
+      btn.style.setProperty('--dot-d', a.dark);
+      btn.title = a.name;
+      btn.setAttribute('aria-label', a.name);
+      btn.setAttribute('aria-pressed', String(settings.accent === a.id));
+      btn.addEventListener('click', () => changeSettings({ accent: a.id }));
+      return btn;
+    }),
+  );
+  $<HTMLInputElement>('show-coords').checked = settings.coordinates;
+
+  // the preview is built the first time Settings is shown, when its box has a size
+  if (!preview) {
+    preview = Chessground($('preview-board'), {
+      fen: 'r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4',
+      lastMove: ['h5', 'f7'],
+      check: 'black',
+      viewOnly: true,
+      coordinates: settings.coordinates,
+    });
+    preview.setAutoShapes([{ orig: 'c4', dest: 'f7', brush: 'green' }]);
+  } else {
+    preview.redrawAll();
+  }
+}
+
+document.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach(r =>
+  r.addEventListener('change', () => changeSettings({ theme: r.value as Settings['theme'] })),
+);
+for (const id of ['custom-light', 'custom-dark'] as const) {
+  // "input" fires while dragging in the color picker: the board follows live
+  $<HTMLInputElement>(id).addEventListener('input', e => {
+    const value = (e.target as HTMLInputElement).value;
+    changeSettings({ customBoard: { ...settings.customBoard, [id === 'custom-light' ? 'light' : 'dark']: value } });
+  });
+}
+$<HTMLInputElement>('show-coords').addEventListener('change', e =>
+  changeSettings({ coordinates: (e.target as HTMLInputElement).checked }),
+);
+$('reset-settings').addEventListener('click', () => changeSettings({ ...DEFAULTS }));
 
 function openSaved(saved: SavedGame): void {
   persist(); // the game being left, before it is replaced
@@ -543,7 +633,7 @@ function renderLesson(node: MoveNode, review: MoveReview | undefined, lesson: Re
   const ply = node.ply;
   if (!ply || !lesson) {
     el.replaceChildren(
-      h('p', 'muted', game.root.children.length ? 'Start position. Press ▶ to go through the game.' : 'Make a move on the board, or open a game from My games.'),
+      h('p', 'muted', game.root.children.length ? 'Start position. Press ▶ to go through the game.' : 'Start position.'),
     );
     return;
   }
