@@ -494,46 +494,6 @@ a.button:hover {
   padding: 14px;
 }
 
-@media (max-width: 960px) {
-  .layout {
-    --board: min(calc(100vw - 32px - var(--bar) - 6px), 680px);
-    flex-direction: column;
-    align-items: center;
-  }
-  .panel {
-    width: calc(var(--board) + var(--bar) + 6px);
-    height: auto;
-    min-height: 0;
-  }
-  .moves {
-    max-height: 200px;
-  }
-  .lesson {
-    max-height: none;
-  }
-  /* Move controls stay under the thumb instead of moving with the text above them. */
-  .nav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 15;
-    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-  }
-  .nav button {
-    padding: 10px 0;
-    font-size: 18px;
-  }
-  body[data-view='review'] {
-    padding-bottom: 72px;
-  }
-  body[data-view='review'] .toast {
-    bottom: 84px;
-  }
-}
-
 /* ---------- panel ---------- */
 
 .status {
@@ -723,12 +683,19 @@ a.button:hover {
 /* ---------- lesson ---------- */
 
 .lesson {
-  max-height: 42%;
+  max-height: 45%;
   overflow-y: auto;
   font-size: 14px;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
   flex: none;
+}
+
+.analysis-box {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
 }
 .lesson p,
 .lesson ul,
@@ -959,4 +926,75 @@ dialog::backdrop {
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, 0);
+}
+
+/* ---------- phones and narrow windows ----------
+   Kept last so it overrides the rules above. The board column and the panel dissolve into one
+   column, ordered by what you need while reviewing: board, explanation, moves, graph, the rest. */
+
+@media (max-width: 960px) {
+  .layout {
+    --board: min(calc(100vw - 32px - var(--bar) - 6px), 680px);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .board-col,
+  .panel {
+    display: contents;
+  }
+  .player-top { order: 1; }
+  .board-row { order: 2; justify-content: center; }
+  .player-bottom { order: 3; }
+  .lesson { order: 4; }
+  .moves { order: 5; }
+  .toggle { order: 6; }
+  #graph { order: 7; }
+  .status { order: 8; }
+  .analysis-box { order: 9; }
+  .actions { order: 10; }
+  .hint { order: 11; }
+
+  .player {
+    min-height: 0;
+    padding: 0 2px;
+  }
+  .lesson,
+  .analysis-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: none;
+  }
+  .moves {
+    flex: none;
+    max-height: 168px;
+    min-height: 0;
+  }
+  .graph {
+    margin: 0;
+  }
+
+  /* Move controls stay under the thumb instead of moving with the text above them. */
+  .nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .nav button {
+    padding: 10px 0;
+    font-size: 18px;
+  }
+  body[data-view='review'] {
+    padding-bottom: 72px;
+  }
+  body[data-view='review'] .toast {
+    bottom: 84px;
+  }
 }
