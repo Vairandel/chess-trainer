@@ -8,6 +8,7 @@ import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { Analyzer } from './analyzer';
+import { moveBadge } from './badges';
 import { Engine, workerTransport } from './engine';
 import { Game, splitPgnGames, type Ply, type PromotionPiece } from './game';
 import { EvalGraph, type GraphPoint } from './graph';
@@ -326,18 +327,23 @@ function render(): void {
   requestLiveEvaluation();
 }
 
+/** Arrows and the grade badge drawn on the board for the move being viewed. */
 function arrows(review: MoveReview | undefined, lesson: ReturnType<typeof explainMove> | undefined): DrawShape[] {
   const shape = (uci: string, brush: string): DrawShape => ({ orig: uci.slice(0, 2) as Key, dest: uci.slice(2, 4) as Key, brush });
+  const shapes: DrawShape[] = [];
+  const last = game.lastPly();
+  const badge = review && last && moveBadge(review.classification, last.to);
+  if (badge) shapes.push(badge);
+
   const bad = review && ['inaccuracy', 'mistake', 'blunder'].includes(review.classification);
   if (bad && lesson) {
-    const shapes: DrawShape[] = [];
     if (lesson.better) shapes.push(shape(lesson.better.uci, 'green'));
     if (lesson.reply) shapes.push(shape(lesson.reply.uci, 'red'));
     return shapes;
   }
   const current = analyzer.get(game.fen());
-  if ($<HTMLInputElement>('show-best').checked && current?.best) return [shape(current.best, 'blue')];
-  return [];
+  if ($<HTMLInputElement>('show-best').checked && current?.best) shapes.push(shape(current.best, 'blue'));
+  return shapes;
 }
 
 function renderStatus(status: ReturnType<Game['status']>): void {

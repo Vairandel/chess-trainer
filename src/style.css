@@ -10,10 +10,11 @@
   --current: #e9d9a8;
   --danger: #b3261e;
   --comment-bg: #f6efd9;
-  /* move classifications: always shown with their glyph (?!, ?, ??), never by color alone */
-  --best: #3f7d20;
-  --inaccuracy: #b07d00;
-  --mistake: #d0570b;
+  /* move classifications: always shown with their glyph (?!, ?, ??), never by color alone.
+     Same hues as the Lichess board badges (colorblind-safe blue / orange / red), darkened for text on light. */
+  --best: #1b7f2c;
+  --inaccuracy: #1f78b4;
+  --mistake: #9e5d00;
   --blunder: #c62828;
   --graph-bg: #e9e4db;
   --graph-white: #ffffff;
@@ -35,10 +36,10 @@
     --current: #5a4a22;
     --danger: #f2817a;
     --comment-bg: #2f2a20;
-    --best: #8fc46a;
-    --inaccuracy: #e6b422;
-    --mistake: #f08a3c;
-    --blunder: #f2655c;
+    --best: #4cc25e;
+    --inaccuracy: #56b4e9;
+    --mistake: #e69f00;
+    --blunder: #ef6b6b;
     --graph-bg: #2b2825;
     --graph-white: #d9d4cc;
     --graph-black: #141210;
