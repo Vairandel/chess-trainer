@@ -2,6 +2,14 @@ import { Chess } from 'chess.js';
 import type { Engine, EngineResult } from './engine';
 import { needsDeeperLook, toWhiteScore, type PositionEval } from './review';
 
+/** A move to grade: the engine looks at the position before and after it. */
+export interface AnalyzedMove {
+  uci: string;
+  color: 'w' | 'b';
+  fenBefore: string;
+  fenAfter: string;
+}
+
 /** Upper bound per position so a deep setting never stalls the page. */
 const MOVETIME_MS = 4000;
 
@@ -54,31 +62,24 @@ export class Analyzer {
   }
 
   /**
-   * Evaluates every position of a game, in order, then searches deeper wherever two neighbouring
-   * evaluations contradict each other. Starting another game job cancels this one.
-   * `fens` has one more entry than `moves`: the start position, then the position after each move.
-   * Resolves true when all positions are done, false if it was cancelled.
+   * Evaluates the positions around every move (main line and variations, in the order given), then
+   * searches deeper wherever two neighbouring evaluations contradict each other.
+   * Starting another game job cancels this one. Resolves true when done, false if cancelled.
    */
-  async analyzeGame(
-    fens: string[],
-    moves: { uci: string; color: 'w' | 'b' }[],
-    depth: number,
-    onProgress: (done: number, total: number) => void,
-  ): Promise<boolean> {
+  async analyzeGame(moves: AnalyzedMove[], depth: number, onProgress: (done: number, total: number) => void): Promise<boolean> {
     const job = ++this.gameJob;
+    const fens = [...new Set(moves.flatMap(m => [m.fenBefore, m.fenAfter]))];
     for (let i = 0; i < fens.length; i++) {
       if (job !== this.gameJob) return false;
       onProgress(i, fens.length);
       await this.evaluate(fens[i], depth);
     }
     onProgress(fens.length, fens.length); // every position done; the double-check pass follows
-    for (let i = 0; i < moves.length; i++) {
+    for (const m of moves) {
       if (job !== this.gameJob) return false;
-      const before = this.cache.get(fens[i])!;
-      const after = this.cache.get(fens[i + 1])!;
-      if (needsDeeperLook(moves[i].uci, moves[i].color, before, after)) {
-        await this.evaluate(fens[i], depth + 6);
-        await this.evaluate(fens[i + 1], depth + 6);
+      if (needsDeeperLook(m.uci, m.color, this.cache.get(m.fenBefore)!, this.cache.get(m.fenAfter)!)) {
+        await this.evaluate(m.fenBefore, depth + 6);
+        await this.evaluate(m.fenAfter, depth + 6);
       }
     }
     return job === this.gameJob;

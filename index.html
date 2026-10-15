@@ -69,6 +69,10 @@
         <section class="lesson" id="lesson" aria-live="polite"></section>
 
         <ol class="moves" id="moves" aria-label="Moves"></ol>
+        <div class="line-tools" id="line-tools" hidden>
+          <button id="promote-line" title="Make this variation the main line">Make main line</button>
+          <button id="delete-line" title="Delete this move and everything after it">Delete from here</button>
+        </div>
         <label class="toggle"><input type="checkbox" id="show-best" /> Show the engine's best move</label>
 
         <div class="analysis-box">
@@ -99,8 +103,9 @@
 
         <div class="actions">
           <button id="copy-pgn">Copy PGN</button>
+          <button id="save-game" hidden>Save to My games</button>
         </div>
-        <p class="hint">Keys: ← → to step, Home / End, F to flip, A to analyze.</p>
+        <p class="hint">Keys: ← → to step, Home / End, F to flip, A to analyze. Play a different move to start a variation.</p>
       </aside>
     </main>
 

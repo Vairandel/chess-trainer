@@ -7,10 +7,10 @@ import '@lichess-org/chessground/assets/chessground.base.css';
 import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { Analyzer } from './analyzer';
+import { Analyzer, type AnalyzedMove } from './analyzer';
 import { moveBadge } from './badges';
 import { Engine, workerTransport } from './engine';
-import { Game, splitPgnGames, type Ply, type PromotionPiece } from './game';
+import { Game, splitPgnGames, type MoveNode, type Ply, type PromotionPiece } from './game';
 import { EvalGraph, type GraphPoint } from './graph';
 import { Library, type SavedGame } from './library';
 import { formatScore, LABELS, reviewMove, summarize, winChance, type MoveReview, type PositionEval } from './review';
@@ -21,7 +21,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const game = new Game();
 const library = new Library();
 let orientation: Color = 'white';
-/** The saved game shown in Review; cleared once its moves are changed on the board. */
+/** The saved game shown in Review. Changes to it (new variations, deleted lines) are saved automatically. */
 let currentGameId: string | undefined;
 
 const board: Api = Chessground($('board'), {
@@ -78,14 +78,10 @@ function depth(): number {
 
 const uciOf = (p: Ply) => `${p.from}${p.to}${p.promotion ?? ''}`;
 
-/** All positions of the game: the start, then the position after each move. */
-function fens(): string[] {
-  return [game.startFen, ...game.plies.map(p => p.fenAfter)];
-}
-
-/** The review of move `index`, if both positions around it have been evaluated. */
-function reviewAt(index: number): MoveReview | undefined {
-  const ply = game.plies[index];
+/** The review of the move that led to `node`, if both positions around it have been evaluated. */
+function reviewOf(node: MoveNode): MoveReview | undefined {
+  const ply = node.ply;
+  if (!ply) return undefined;
   const before = analyzer.get(ply.fenBefore);
   const after = analyzer.get(ply.fenAfter);
   return before && after ? reviewMove(uciOf(ply), ply.color, before, after) : undefined;
@@ -95,35 +91,68 @@ function firstMover(): 'w' | 'b' {
   return game.startFen.split(' ')[1] === 'b' ? 'b' : 'w';
 }
 
+/** "12. Nf3" or "12...Nf6". */
+function moveName(ply: Ply): string {
+  return `${ply.fenBefore.split(' ')[5]}${ply.color === 'w' ? '. ' : '...'}${ply.san}`;
+}
+
 async function analyzeGame(): Promise<void> {
-  if (engineState !== 'ready' || analyzing || game.plies.length === 0) return;
+  if (engineState !== 'ready' || analyzing || game.root.children.length === 0) return;
   analyzing = true;
-  const gameId = currentGameId;
   render();
-  const all = fens();
-  const moves = game.plies.map(p => ({ uci: uciOf(p), color: p.color }));
+  // the main line first, then the variations
+  const moves: AnalyzedMove[] = game.allNodes().map(n => ({
+    uci: uciOf(n.ply!),
+    color: n.ply!.color,
+    fenBefore: n.ply!.fenBefore,
+    fenAfter: n.ply!.fenAfter,
+  }));
   let finished = false;
   try {
-    finished = await analyzer.analyzeGame(all, moves, depth(), (done, total) => {
+    finished = await analyzer.analyzeGame(moves, depth(), (done, total) => {
       $('progress-fill').style.width = `${(100 * done) / total}%`;
-      $('progress-text').textContent = done < total ? `Analyzing ${done + 1} / ${total}…` : 'Double-checking…';
+      $('progress-text').textContent = done < total ? `Analyzing position ${done + 1} / ${total}…` : 'Double-checking…';
       render();
     });
   } catch {
     toast('The engine stopped working. Reload the page to try again.');
   }
   analyzing = false;
-  if (finished && gameId && gameId === currentGameId) saveAnalysis(gameId, all);
+  persist();
   render();
   if (finished) toast('Analysis complete. Step through the moves to read the explanations.');
 }
 
-/** Remembers a finished analysis, so reopening the game later shows it at once. */
-function saveAnalysis(id: string, positions: string[]): void {
-  const evals = positions.map(f => analyzer.get(f)).filter((e): e is PositionEval => !!e);
-  library.saveEvals(id, evals);
-  const s = summarize(game.plies.map((_, i) => reviewAt(i)), firstMover());
-  library.setAccuracy(id, { w: Math.round(s.w.accuracy), b: Math.round(s.b.accuracy) });
+/**
+ * Saves the current game in My games: its moves and variations, the evaluations found so far
+ * (so reopening it later shows them at once), and the accuracy once the main line is fully analyzed.
+ */
+function persist(): void {
+  if (!currentGameId) return;
+  const main = game.mainLine();
+  const reviews = main.map(reviewOf);
+  const s = summarize(reviews, firstMover());
+  try {
+    library.update(currentGameId, {
+      pgn: game.pgn(),
+      moves: main.length,
+      accuracy: main.length && reviews.every(Boolean) ? { w: Math.round(s.w.accuracy), b: Math.round(s.b.accuracy) } : undefined,
+    });
+  } catch (err) {
+    toast((err as Error).message);
+  }
+  const evals = game
+    .allNodes()
+    .flatMap(n => [analyzer.get(n.ply!.fenBefore), analyzer.get(n.ply!.fenAfter)])
+    .filter((e): e is PositionEval => !!e);
+  library.saveEvals(currentGameId, [...new Set(evals)]);
+}
+
+/** Live evaluations arrive one by one; save them in batches rather than after each. */
+let persistTimer: number | undefined;
+function persistSoon(): void {
+  clearTimeout(persistTimer);
+  persistTimer = window.setTimeout(persist, 1500);
 }
 
 /** Makes sure the positions needed for the current view are evaluated, one at a time. */
@@ -131,7 +160,12 @@ function requestLiveEvaluation(): void {
   if (engineState === 'failed' || currentView !== 'review') return;
   const wanted = [game.fen(), game.lastPly()?.fenBefore].filter((f): f is string => !!f);
   const missing = wanted.find(f => !analyzer.get(f));
-  if (missing) analyzer.requestLive(missing, Math.min(LIVE_DEPTH, depth()), () => render());
+  if (missing) {
+    analyzer.requestLive(missing, Math.min(LIVE_DEPTH, depth()), () => {
+      render();
+      persistSoon();
+    });
+  }
 }
 
 // ---------- views ----------
@@ -157,6 +191,7 @@ function route(): void {
 }
 
 function openSaved(saved: SavedGame): void {
+  persist(); // the game being left, before it is replaced
   try {
     game.loadPgn(saved.pgn);
   } catch (err) {
@@ -288,6 +323,7 @@ pgnText.addEventListener('drop', async e => {
   if (file) addGames(await file.text());
 });
 $('empty-board').addEventListener('click', () => {
+  persist();
   analyzer.cancelGame();
   currentGameId = undefined;
   game.reset();
@@ -302,9 +338,10 @@ function render(): void {
   const status = game.status();
   const last = game.lastPly();
   const turnColor: Color = status.turn === 'w' ? 'white' : 'black';
-  const index = game.cursor - 1;
-  const review = index >= 0 ? reviewAt(index) : undefined;
-  const lesson = index >= 0 ? explainMove(game.plies, index, review) : undefined;
+  const node = game.node;
+  const review = reviewOf(node);
+  const line = game.pathPlies();
+  const lesson = node.ply ? explainMove(line, line.length - 1, review) : undefined;
 
   board.set({
     fen: game.fen(),
@@ -319,7 +356,8 @@ function render(): void {
   renderStatus(status);
   renderPlayers();
   renderMoves();
-  renderLesson(index, review, lesson);
+  renderLineTools();
+  renderLesson(node, review, lesson);
   renderEvalBar();
   renderGraph();
   renderAnalysisControls();
@@ -375,39 +413,100 @@ function renderPlayers(): void {
   $('game-info').textContent = info;
 }
 
+/** A clickable move, with its error glyph once analyzed. `label` defaults to the SAN. */
+function moveButton(node: MoveNode, label = node.ply!.san): HTMLElement {
+  const ply = node.ply!;
+  const btn = h('button', 'move', label);
+  const cls = reviewOf(node)?.classification;
+  if (cls && ['inaccuracy', 'mistake', 'blunder'].includes(cls)) {
+    const glyph = h('span', `glyph ${cls}`, LABELS[cls].glyph);
+    glyph.title = LABELS[cls].name;
+    btn.append(glyph);
+    btn.setAttribute('aria-label', `${moveName(ply)}, ${LABELS[cls].name}`);
+  }
+  if (ply.comment) btn.classList.add('has-comment');
+  if (node === game.node) btn.classList.add('current');
+  btn.addEventListener('click', () => goTo(node));
+  return btn;
+}
+
+/**
+ * The move list: the main line in two columns. After a move that has alternatives, the
+ * alternatives are listed underneath, indented, each as a line of text that can hold further
+ * (nested) variations in parentheses — like on Lichess.
+ */
 function renderMoves(): void {
   const list = $('moves');
   list.replaceChildren();
-  const startsWithBlack = firstMover() === 'b';
-  const firstMoveNumber = Number(game.startFen.split(' ')[5]) || 1;
+  const number = (ply: Ply) => `${ply.fenBefore.split(' ')[5]}.`;
 
   let row: HTMLLIElement | undefined;
-  game.plies.forEach((ply, i) => {
-    const index = i + (startsWithBlack ? 1 : 0);
-    if (index % 2 === 0 || !row) {
+  for (let parent = game.root; parent.children.length; parent = parent.children[0]) {
+    const [main, ...alternatives] = parent.children;
+    const ply = main.ply!;
+    if (ply.color === 'w' || !row) {
       row = document.createElement('li');
-      row.append(h('span', 'num', `${firstMoveNumber + Math.floor(index / 2)}.`));
-      if (index % 2 === 1) row.append(h('span', 'move placeholder', '…'));
+      row.append(h('span', 'num', number(ply)));
+      if (ply.color === 'b') row.append(h('span', 'move placeholder', '…'));
       list.append(row);
     }
-    const btn = h('button', 'move', ply.san);
-    const cls = reviewAt(i)?.classification;
-    if (cls && ['inaccuracy', 'mistake', 'blunder'].includes(cls)) {
-      const glyph = h('span', `glyph ${cls}`, LABELS[cls].glyph);
-      glyph.title = LABELS[cls].name;
-      btn.append(glyph);
-      btn.setAttribute('aria-label', `${ply.san}, ${LABELS[cls].name}`);
+    row.append(moveButton(main));
+    if (alternatives.length) {
+      if (ply.color === 'w') row.append(h('span', 'move placeholder', ''));
+      const block = h('li', 'variations');
+      for (const alt of alternatives) block.append(variationLine(alt));
+      list.append(block);
+      row = undefined; // the main line resumes on a new row, with its move number
     }
-    if (ply.comment) btn.classList.add('has-comment');
-    if (i + 1 === game.cursor) btn.classList.add('current');
-    btn.addEventListener('click', () => goTo(i + 1));
-    row.append(btn);
-  });
+  }
 
-  if (game.plies.length === 0) {
+  if (game.root.children.length === 0) {
     list.append(h('li', 'empty', 'Play a move on the board, or open a game from My games.'));
   }
   keepCurrentMoveVisible(list);
+}
+
+/** One variation as inline text: "5...Nf6 6. Nc3 (6. e5 Ne4) 6...Bb4". */
+function variationLine(first: MoveNode): HTMLElement {
+  const line = h('div', 'variation');
+  appendLine(line, first);
+  return line;
+}
+
+/**
+ * Appends `first` and its continuation. Alternatives along the way go in parentheses right
+ * after the move they replace, and the move after them gets its number again.
+ */
+function appendLine(el: HTMLElement, first: MoveNode): void {
+  el.append(moveButton(first, numberedSan(first, true)));
+  let needNumber = false;
+  for (let parent = first; parent.children.length; ) {
+    const [next, ...alternatives] = parent.children;
+    el.append(moveButton(next, numberedSan(next, needNumber)));
+    needNumber = false;
+    for (const alt of alternatives) {
+      el.append(h('span', 'paren', '('));
+      appendLine(el, alt);
+      el.append(h('span', 'paren', ')'));
+      needNumber = true;
+    }
+    parent = next;
+  }
+}
+
+/** "6. Nc3", "6...Nf6" when a black move needs its number, otherwise just "Nf6". */
+function numberedSan(node: MoveNode, forceNumber: boolean): string {
+  const ply = node.ply!;
+  const n = ply.fenBefore.split(' ')[5];
+  return ply.color === 'w' ? `${n}. ${ply.san}` : forceNumber ? `${n}...${ply.san}` : ply.san;
+}
+
+/** "Make main line" / "Delete from here" for the move being viewed. */
+function renderLineTools(): void {
+  const node = game.node;
+  $('line-tools').hidden = !node.ply;
+  $('promote-line').hidden = game.isMainLine(node);
+  $('save-game').hidden = !!currentGameId || game.root.children.length === 0;
 }
 
 /**
@@ -439,17 +538,17 @@ function h(tag: string, className: string, ...children: (Node | string)[]): HTML
   return e;
 }
 
-function renderLesson(index: number, review: MoveReview | undefined, lesson: ReturnType<typeof explainMove> | undefined): void {
+function renderLesson(node: MoveNode, review: MoveReview | undefined, lesson: ReturnType<typeof explainMove> | undefined): void {
   const el = $('lesson');
-  if (index < 0 || !lesson) {
+  const ply = node.ply;
+  if (!ply || !lesson) {
     el.replaceChildren(
-      h('p', 'muted', game.plies.length ? 'Start position. Press ▶ to go through the game.' : 'Make a move on the board, or open a game from My games.'),
+      h('p', 'muted', game.root.children.length ? 'Start position. Press ▶ to go through the game.' : 'Make a move on the board, or open a game from My games.'),
     );
     return;
   }
-  const ply = game.plies[index];
-  const moveName = `${ply.fenBefore.split(' ')[5]}${ply.color === 'w' ? '. ' : '...'}${ply.san}`;
-  const header = h('div', 'lesson-head', h('strong', 'lesson-move', moveName));
+  const header = h('div', 'lesson-head', h('strong', 'lesson-move', moveName(ply)));
+  if (!game.isMainLine(node)) header.append(h('span', 'in-variation', 'variation'));
   if (review) {
     const label = LABELS[review.classification];
     header.append(h('span', `badge ${review.classification}`, `${label.glyph ? `${label.glyph} ` : ''}${label.name}`));
@@ -464,6 +563,13 @@ function renderLesson(index: number, review: MoveReview | undefined, lesson: Ret
     if (lesson.better.reason) better.append(` ${lesson.better.reason}`);
     parts.push(better);
     if (lesson.better.line) parts.push(h('p', 'lesson-line', `Engine line: ${lesson.better.line}`));
+    const pv = review?.before.pv ?? [];
+    if (pv.length && node.parent) {
+      const play = h('button', 'play-line', `▶ Play the ${lesson.better.san} line`);
+      play.title = 'Add the engine line as a variation and step through it';
+      play.addEventListener('click', () => playEngineLine(node.parent!, pv));
+      parts.push(play);
+    }
   }
   const bad = review && ['inaccuracy', 'mistake', 'blunder'].includes(review.classification);
   if (bad) {
@@ -497,34 +603,40 @@ function renderEvalBar(): void {
   bar.title = `Evaluation: ${text} (depth ${current.depth})`;
 }
 
+/** The graph follows the main line; inside a variation its cursor stays where the variation branches off. */
 function renderGraph(): void {
-  const points: GraphPoint[] = fens().map((fen, i) => {
-    const e = analyzer.get(fen);
-    const ply = game.plies[i - 1];
+  const nodes = [game.root, ...game.mainLine()];
+  const points: GraphPoint[] = nodes.map(n => {
+    const e = analyzer.get(n.ply?.fenAfter ?? game.startFen);
     return {
       value: e ? winChance(e.score) : undefined,
       score: e ? formatScore(e.score) : undefined,
-      label: ply ? `${ply.fenBefore.split(' ')[5]}${ply.color === 'w' ? '. ' : '...'}${ply.san}` : 'Start',
-      mark: i > 0 ? reviewAt(i - 1)?.classification : undefined,
+      label: n.ply ? moveName(n.ply) : 'Start',
+      mark: reviewOf(n)?.classification,
     };
   });
-  graph.update(points, game.cursor);
+  let branch = game.node;
+  while (!game.isMainLine(branch) && branch.parent) branch = branch.parent;
+  graph.update(points, game.path(branch).length);
 }
 
 function renderAnalysisControls(): void {
   const btn = $<HTMLButtonElement>('analyze');
-  const allDone = game.plies.length > 0 && game.plies.every((_, i) => reviewAt(i));
-  btn.disabled = engineState !== 'ready' || analyzing || game.plies.length === 0;
+  const main = game.mainLine();
+  const allDone = game.root.children.length > 0 && game.allNodes().every(reviewOf);
+  btn.disabled = engineState !== 'ready' || analyzing || game.root.children.length === 0;
   btn.textContent = analyzing ? 'Analyzing…' : allDone ? 'Re-analyze' : 'Analyze game';
   $<HTMLSelectElement>('depth').disabled = analyzing;
   $('progress').hidden = !analyzing;
 
+  // accuracy is about the game as played: the main line only
   const summaryEl = $('summary');
-  if (!allDone || analyzing) {
+  const mainReviews = main.map(reviewOf);
+  if (analyzing || main.length === 0 || !mainReviews.every(Boolean)) {
     summaryEl.hidden = true;
     return;
   }
-  const s = summarize(game.plies.map((_, i) => reviewAt(i)), firstMover());
+  const s = summarize(mainReviews, firstMover());
   const row = (side: 'w' | 'b') => {
     const p = s[side];
     const name = game.headers[side === 'w' ? 'White' : 'Black'] ?? (side === 'w' ? 'White' : 'Black');
@@ -544,8 +656,8 @@ function renderAnalysisControls(): void {
 }
 
 function renderNav(): void {
-  const atStart = game.cursor === 0;
-  const atEnd = game.cursor === game.plies.length;
+  const atStart = !game.node.ply;
+  const atEnd = game.node.children.length === 0;
   $<HTMLButtonElement>('nav-start').disabled = atStart;
   $<HTMLButtonElement>('nav-prev').disabled = atStart;
   $<HTMLButtonElement>('nav-next').disabled = atEnd;
@@ -563,8 +675,17 @@ async function onUserMove(orig: Key, dest: Key): Promise<void> {
     if (!promotion) return render(); // cancelled: put the pawn back
   }
   game.play(from, to, promotion);
-  currentGameId = undefined; // the moves no longer match the saved game
   render();
+  persist();
+}
+
+/** Adds the engine's line as a variation after `from` and goes to its first move. */
+function playEngineLine(from: MoveNode, pv: string[]): void {
+  const first = game.addLine(from, pv.slice(0, 10));
+  if (!first) return;
+  goTo(first);
+  persist();
+  toast('Engine line added as a variation. Press ▶ to play it move by move.');
 }
 
 function askPromotion(color: Color): Promise<PromotionPiece | undefined> {
@@ -594,8 +715,14 @@ function askPromotion(color: Color): Promise<PromotionPiece | undefined> {
   });
 }
 
-function goTo(ply: number): void {
-  game.goTo(ply);
+/** Goes to a node, or to the n-th position of the main line. */
+function goTo(target: MoveNode | number): void {
+  game.goTo(target);
+  render();
+}
+
+function step(action: 'back' | 'forward' | 'toStart' | 'toEnd'): void {
+  game[action]();
   render();
 }
 
@@ -606,10 +733,45 @@ function flip(): void {
   render();
 }
 
-$('nav-start').addEventListener('click', () => goTo(0));
-$('nav-prev').addEventListener('click', () => goTo(game.cursor - 1));
-$('nav-next').addEventListener('click', () => goTo(game.cursor + 1));
-$('nav-end').addEventListener('click', () => goTo(game.plies.length));
+$('nav-start').addEventListener('click', () => step('toStart'));
+$('nav-prev').addEventListener('click', () => step('back'));
+$('nav-next').addEventListener('click', () => step('forward'));
+$('nav-end').addEventListener('click', () => step('toEnd'));
+$('promote-line').addEventListener('click', () => {
+  game.makeMainLine(game.node);
+  render();
+  persist();
+  toast('This line is now the main line.');
+});
+$('delete-line').addEventListener('click', () => {
+  const node = game.node;
+  if (game.isMainLine(node) && !confirm(`Delete ${moveName(node.ply!)} and every move after it from the game?`)) return;
+  game.deleteFrom(node);
+  render();
+  persist();
+});
+$('save-game').addEventListener('click', () => {
+  const main = game.mainLine();
+  try {
+    const [saved] = library.add([
+      {
+        pgn: game.pgn(),
+        white: game.headers.White ?? 'White',
+        black: game.headers.Black ?? 'Black',
+        result: game.headers.Result ?? '*',
+        date: new Date().toISOString().slice(0, 10),
+        event: 'Analysis board',
+        moves: main.length,
+      },
+    ]);
+    currentGameId = saved.id;
+    persist();
+    render();
+    toast('Saved to My games.');
+  } catch (err) {
+    toast((err as Error).message);
+  }
+});
 $('flip').addEventListener('click', flip);
 $('analyze').addEventListener('click', () => void analyzeGame());
 $('show-best').addEventListener('change', () => render());
@@ -642,10 +804,10 @@ document.addEventListener('keydown', e => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const actions: Record<string, () => void> = {
-    ArrowLeft: () => goTo(game.cursor - 1),
-    ArrowRight: () => goTo(game.cursor + 1),
-    Home: () => goTo(0),
-    End: () => goTo(game.plies.length),
+    ArrowLeft: () => step('back'),
+    ArrowRight: () => step('forward'),
+    Home: () => step('toStart'),
+    End: () => step('toEnd'),
     f: flip,
     F: flip,
     a: () => void analyzeGame(),
@@ -668,4 +830,6 @@ function toast(message: string): void {
 }
 
 window.addEventListener('hashchange', route);
+// the last live evaluations are still waiting in persistSoon's timer
+document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && persist());
 route();

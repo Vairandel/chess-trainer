@@ -64,11 +64,13 @@ export class Library {
     }
   }
 
-  setAccuracy(id: string, accuracy: { w: number; b: number }): void {
+  /** Changes a saved game, e.g. its PGN after variations were added, or its accuracy after analysis. */
+  update(id: string, patch: Partial<Pick<SavedGame, 'pgn' | 'moves' | 'accuracy'>>): void {
     const all = this.list();
     const game = all.find(g => g.id === id);
     if (!game) return;
-    game.accuracy = accuracy;
+    Object.assign(game, patch);
+    if ('accuracy' in patch && !patch.accuracy) delete game.accuracy;
     this.write(all);
   }
 

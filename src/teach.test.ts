@@ -86,8 +86,8 @@ describe('explainMove (with Stockfish)', () => {
     const game = new Game();
     game.loadPgn(pgn);
     const fens = [game.startFen, ...game.plies.map(p => p.fenAfter)];
-    const moves = game.plies.map(p => ({ uci: `${p.from}${p.to}${p.promotion ?? ''}`, color: p.color }));
-    await analyzer.analyzeGame(fens, moves, 12, () => {});
+    const moves = game.plies.map(p => ({ uci: `${p.from}${p.to}${p.promotion ?? ''}`, color: p.color, fenBefore: p.fenBefore, fenAfter: p.fenAfter }));
+    await analyzer.analyzeGame(moves, 12, () => {});
     return game.plies.map((p, i) => {
       const review = reviewMove(`${p.from}${p.to}${p.promotion ?? ''}`, p.color, analyzer.get(fens[i])!, analyzer.get(fens[i + 1])!);
       return { review, lesson: explainMove(game.plies, i, review) };

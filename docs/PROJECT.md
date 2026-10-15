@@ -60,6 +60,8 @@ flowchart TD
 - [x] **Phase 1 — Interactive board**: move validation, all special moves, PGN import, navigation — *approved 2026-10-15*
 - [ ] **Phase 2 — Game analysis**: per-move evaluation, comments on every move, eval graph — *built, waiting for Randi's approval*
   - Feedback round 1: section tabs (My games / Review, future sections shown as "soon"), saved games with their analysis (localStorage), page no longer jumps when stepping through moves, move controls fixed at the bottom on phones.
+  - Feedback round 2: grade badges on the moved piece (Lichess glyphs), explanation shown first.
+  - Variations: the game is a move tree. Playing a different move starts a variation instead of erasing the game; PGN variations, comments and NAGs are read and written (own movetext parser, chess.js validates each move); "Play the … line" adds the engine's line as a variation; "Make main line" and "Delete from here"; every line is analyzed; variations are saved with the game. Accuracy counts the main line only.
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 

@@ -103,12 +103,63 @@ describe('navigation', () => {
     expect(g.cursor).toBe(3);
   });
 
-  it('replaces the rest of the game when playing from an earlier position', () => {
+  it('keeps the game and starts a variation when playing from an earlier position', () => {
     const g = new Game();
     playAll(g, 'e2e4 e7e5 g1f3');
     g.goTo(1);
     playAll(g, 'c7c5');
-    expect(g.plies.map(p => p.san)).toEqual(['e4', 'c5']);
+    expect(g.plies.map(p => p.san)).toEqual(['e4', 'e5', 'Nf3']);
+    expect(g.isMainLine()).toBe(false);
+    expect(g.pathPlies().map(p => p.san)).toEqual(['e4', 'c5']);
+    expect(g.mainLine()[0].children.map(c => c.ply!.san)).toEqual(['e5', 'c5']);
+  });
+
+  it('reuses a move that is already there', () => {
+    const g = new Game();
+    playAll(g, 'e2e4 e7e5');
+    g.goTo(1);
+    playAll(g, 'e7e5');
+    expect(g.mainLine()[0].children).toHaveLength(1);
+    expect(g.isMainLine()).toBe(true);
+  });
+
+  it('extends the line when playing at its end', () => {
+    const g = new Game();
+    playAll(g, 'e2e4 e7e5');
+    g.goTo(1);
+    playAll(g, 'c7c5 g1f3 d7d6');
+    g.back();
+    expect(g.lastPly()?.san).toBe('Nf3');
+    g.toEnd();
+    expect(g.lastPly()?.san).toBe('d6');
+    g.toStart();
+    g.forward();
+    g.forward();
+    expect(g.lastPly()?.san).toBe('e5'); // forward follows the main continuation
+  });
+
+  it('deletes a line and makes a variation the main line', () => {
+    const g = new Game();
+    playAll(g, 'e2e4 e7e5 g1f3');
+    g.goTo(1);
+    playAll(g, 'c7c5 g1f3');
+    const sicilian = g.mainLine()[0].children[1];
+    g.makeMainLine(g.node);
+    expect(g.plies.map(p => p.san)).toEqual(['e4', 'c5', 'Nf3']);
+    expect(g.isMainLine()).toBe(true);
+    g.deleteFrom(sicilian);
+    expect(g.plies.map(p => p.san)).toEqual(['e4', 'e5', 'Nf3']);
+    expect(g.lastPly()?.san).toBe('e4'); // the current move was deleted, so we are back at its parent
+  });
+
+  it('adds an engine line as a variation', () => {
+    const g = new Game();
+    playAll(g, 'e2e4 e7e5 f1c4');
+    const first = g.addLine(g.mainLine()[1], ['g1f3', 'b8c6', 'f1b5', 'zz99']);
+    expect(first?.ply?.san).toBe('Nf3');
+    expect(g.path(first!.children[0].children[0]).map(n => n.ply!.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5']);
+    expect(g.plies.map(p => p.san)).toEqual(['e4', 'e5', 'Bc4']);
+    expect(g.allNodes()).toHaveLength(6);
   });
 });
 
@@ -142,10 +193,47 @@ describe('PGN import', () => {
     expect(g.plies[0].comment).toBe('Best by test.');
   });
 
-  it('reads a lichess game with variations and NAGs', () => {
+  it('reads a lichess study with nested variations, comments and NAGs', () => {
     const g = new Game();
-    g.loadPgn('[Event "Study"]\n\n1. e4 e5 2. Nf3 (2. f4 exf4) 2... Nc6 $1 3. Bb5 a6 *');
+    g.loadPgn(
+      '[Event "Study"]\n\n1. e4 e5 2. Nf3 (2. f4 {King\'s Gambit} exf4 (2... d5 3. exd5) 3. Nf3) 2... Nc6 $1 3. Bb5 a6!? *',
+    );
     expect(g.plies.map(p => p.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6']);
+    const afterE5 = g.mainLine()[1];
+    expect(afterE5.children.map(c => c.ply!.san)).toEqual(['Nf3', 'f4']);
+    const f4 = afterE5.children[1];
+    expect(f4.ply!.comment).toBe("King's Gambit");
+    expect(f4.children.map(c => c.ply!.san)).toEqual(['exf4', 'd5']);
+    expect(f4.children[0].children[0].ply!.san).toBe('Nf3');
+    expect(f4.children[1].children[0].ply!.san).toBe('exd5');
+  });
+
+  it('reads compact and unusual move text', () => {
+    const g = new Game();
+    g.loadPgn('1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.0-0 Nf6 5.d3 0-0 ; a line comment\n6.Bg5 h6 1/2-1/2');
+    expect(g.plies.map(p => p.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'O-O', 'Nf6', 'd3', 'O-O', 'Bg5', 'h6']);
+    expect(g.plies[9].comment).toBe('a line comment');
+  });
+
+  it('round-trips variations and comments through pgn()', () => {
+    const g = new Game();
+    const source = '[White "a"]\n[Black "b"]\n\n1. e4 {best by test} e5 (1... c5 2. Nf3 (2. c3 d5) 2... d6) 2. Nf3 *';
+    g.loadPgn(source);
+    const text = g.pgn();
+    expect(text).toContain('1. e4 {best by test} 1... e5 (1... c5 2. Nf3 (2. c3 d5) 2... d6) 2. Nf3 *');
+    const again = new Game();
+    again.loadPgn(text);
+    expect(again.pgn()).toBe(text);
+  });
+
+  it('leaves the current game untouched when a PGN fails', () => {
+    const g = new Game();
+    g.loadPgn('1. e4 e5 2. Nf3 *');
+    expect(() => g.loadPgn('[SetUp "1"]\n[FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"]\n\n1. e4 Kd7 2. Qh5 *')).toThrow(
+      /2\. Qh5 is not a legal move/,
+    );
+    expect(g.plies.map(p => p.san)).toEqual(['e4', 'e5', 'Nf3']);
+    expect(g.startFen.startsWith('rnbqkbnr')).toBe(true);
   });
 
   it('starts from a FEN header', () => {

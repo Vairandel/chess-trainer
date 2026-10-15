@@ -13,7 +13,7 @@ npm run build    # production files in dist/
 
 ## Code
 
-- `src/game.ts`: the game model. It holds the moves, the cursor, PGN import/export and the game status, on top of [chess.js](https://github.com/jhlywa/chess.js).
+- `src/game.ts`: the game model. It holds the move tree (main line and variations), the current position, PGN import/export with variations, and the game status, on top of [chess.js](https://github.com/jhlywa/chess.js).
 - `src/main.ts`: the page. It runs the board ([chessground](https://github.com/lichess-org/chessground), the Lichess board), the move list, navigation and the import dialog.
 - `src/engine.ts`: talks to Stockfish (UCI protocol) running in a Web Worker.
 - `src/analyzer.ts`: evaluates positions, remembers the results by FEN, analyzes whole games.
