@@ -59,6 +59,7 @@ flowchart TD
 
 - [x] **Phase 1 — Interactive board**: move validation, all special moves, PGN import, navigation — *approved 2026-10-15*
 - [ ] **Phase 2 — Game analysis**: per-move evaluation, comments on every move, eval graph — *built, waiting for Randi's approval*
+  - Feedback round 1: section tabs (My games / Review, future sections shown as "soon"), saved games with their analysis (localStorage), page no longer jumps when stepping through moves, move controls fixed at the bottom on phones.
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 

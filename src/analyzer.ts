@@ -15,10 +15,24 @@ export class Analyzer {
   private live?: { fen: string; depth: number; done: (e: PositionEval) => void };
   private liveRunning = false;
 
-  constructor(private engine: Engine) {}
+  private engine: Promise<Engine>;
+
+  /** The engine may still be loading; saved evaluations can be used before it is ready. */
+  constructor(engine: Engine | Promise<Engine>) {
+    this.engine = Promise.resolve(engine);
+    this.engine.catch(() => {}); // a failed engine is reported by whoever started it
+  }
 
   get(fen: string): PositionEval | undefined {
     return this.cache.get(fen);
+  }
+
+  /** Adds saved evaluations, e.g. from a game analyzed in an earlier visit. */
+  seed(evals: PositionEval[]): void {
+    for (const e of evals) {
+      const existing = this.cache.get(e.fen);
+      if (!existing || existing.depth < e.depth) this.cache.set(e.fen, e);
+    }
   }
 
   async evaluate(fen: string, depth: number): Promise<PositionEval> {
@@ -30,7 +44,8 @@ export class Analyzer {
       this.cache.set(fen, final);
       return final;
     }
-    const result = await this.engine.analyze(fen, { depth, multipv: 2, movetime: MOVETIME_MS });
+    const engine = await this.engine;
+    const result = await engine.analyze(fen, { depth, multipv: 2, movetime: MOVETIME_MS });
     const evaluation = toPositionEval(fen, result);
     // a search stopped early must not replace a deeper result
     const existing = this.cache.get(fen);
@@ -56,6 +71,7 @@ export class Analyzer {
       onProgress(i, fens.length);
       await this.evaluate(fens[i], depth);
     }
+    onProgress(fens.length, fens.length); // every position done; the double-check pass follows
     for (let i = 0; i < moves.length; i++) {
       if (job !== this.gameJob) return false;
       const before = this.cache.get(fens[i])!;
@@ -65,9 +81,7 @@ export class Analyzer {
         await this.evaluate(fens[i + 1], depth + 6);
       }
     }
-    if (job !== this.gameJob) return false;
-    onProgress(fens.length, fens.length);
-    return true;
+    return job === this.gameJob;
   }
 
   cancelGame(): void {

@@ -8,10 +8,47 @@
   </head>
   <body>
     <header class="top">
-      <h1>♟ Chess Trainer</h1>
+      <a class="brand" href="#games" aria-label="Chess Trainer">♟<span class="brand-name"> Chess Trainer</span></a>
+      <nav class="tabs" aria-label="Sections">
+        <a href="#games" data-view="games">My games</a>
+        <a href="#review" data-view="review">Review</a>
+        <span class="soon" title="Coming in Phase 3">Study <small>soon</small></span>
+        <span class="soon" title="Coming in Phase 3">Play <small>soon</small></span>
+        <span class="soon" title="Coming in Phase 4">Puzzles <small>soon</small></span>
+      </nav>
     </header>
 
-    <main class="layout">
+    <!-- ========== My games ========== -->
+    <main class="view games-view" id="view-games" hidden>
+      <section class="card add-card" aria-labelledby="add-title">
+        <h2 id="add-title">Add games</h2>
+        <form id="import-form">
+          <label for="pgn-text">Paste a PGN (one game or a whole archive)</label>
+          <textarea id="pgn-text" rows="9" spellcheck="false"
+            placeholder='[White "You"]&#10;[Black "Opponent"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
+          <div class="file-row">
+            <label class="file-btn">
+              Choose a .pgn file
+              <input type="file" id="pgn-file" accept=".pgn,.txt,application/x-chess-pgn,text/plain" />
+            </label>
+            <span class="muted">or drop it on the text box</span>
+          </div>
+          <p class="error" id="import-error" role="alert"></p>
+          <button type="submit" class="primary" id="import-load">Add game</button>
+        </form>
+      </section>
+
+      <section class="card library-card" aria-labelledby="library-title">
+        <div class="library-head">
+          <h2 id="library-title">My games <span class="count" id="game-count"></span></h2>
+          <a class="button" href="#review" id="empty-board">Empty board</a>
+        </div>
+        <ul class="game-list" id="game-list"></ul>
+      </section>
+    </main>
+
+    <!-- ========== Review ========== -->
+    <main class="view layout" id="view-review" hidden>
       <section class="board-col">
         <div class="player player-top" id="player-top"></div>
         <div class="board-row">
@@ -58,38 +95,11 @@
         </nav>
 
         <div class="actions">
-          <button id="new-game">New game</button>
-          <button id="import" class="primary">Import PGN</button>
           <button id="copy-pgn">Copy PGN</button>
         </div>
         <p class="hint">Keys: ← → to step, Home / End, F to flip, A to analyze.</p>
       </aside>
     </main>
-
-    <dialog id="import-dialog" aria-labelledby="import-title">
-      <form method="dialog" id="import-form">
-        <h2 id="import-title">Import a game</h2>
-        <label for="pgn-text">Paste PGN</label>
-        <textarea id="pgn-text" rows="10" spellcheck="false"
-          placeholder='[White "You"]&#10;[Black "Opponent"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
-        <div class="file-row">
-          <label class="file-btn">
-            Choose a .pgn file
-            <input type="file" id="pgn-file" accept=".pgn,.txt,application/x-chess-pgn,text/plain" />
-          </label>
-          <span class="muted">or drop it on the text box</span>
-        </div>
-        <div class="game-pick" id="game-pick" hidden>
-          <label for="game-select">This file has several games. Pick one:</label>
-          <select id="game-select"></select>
-        </div>
-        <p class="error" id="import-error" role="alert"></p>
-        <div class="dialog-actions">
-          <button value="cancel" formnovalidate>Cancel</button>
-          <button id="import-load" class="primary" value="load">Load game</button>
-        </div>
-      </form>
-    </dialog>
 
     <dialog id="promo-dialog" class="promo-dialog" aria-label="Choose promotion piece">
       <div class="cg-wrap promo" id="promo-choices"></div>

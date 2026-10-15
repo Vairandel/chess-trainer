@@ -11,13 +11,17 @@ import { Analyzer } from './analyzer';
 import { Engine, workerTransport } from './engine';
 import { Game, splitPgnGames, type Ply, type PromotionPiece } from './game';
 import { EvalGraph, type GraphPoint } from './graph';
-import { formatScore, LABELS, reviewMove, summarize, winChance, type MoveReview } from './review';
+import { Library, type SavedGame } from './library';
+import { formatScore, LABELS, reviewMove, summarize, winChance, type MoveReview, type PositionEval } from './review';
 import { explainMove } from './teach';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const game = new Game();
+const library = new Library();
 let orientation: Color = 'white';
+/** The saved game shown in Review; cleared once its moves are changed on the board. */
+let currentGameId: string | undefined;
 
 const board: Api = Chessground($('board'), {
   movable: { free: false, showDests: true, events: { after: onUserMove } },
@@ -34,11 +38,11 @@ const graph = new EvalGraph($('graph'), index => goTo(index));
 const LIVE_DEPTH = 14;
 const ENGINE_BASE = `${import.meta.env.BASE_URL}engine/`;
 
-let analyzer: Analyzer | undefined;
+let engineState: 'loading' | 'ready' | 'failed' = 'loading';
 let analyzing = false;
 
 /** Starts Stockfish (WebAssembly), falling back to the slower asm.js build if that fails. */
-async function startEngine(): Promise<void> {
+async function startEngine(): Promise<Engine> {
   const builds = [
     { file: 'stockfish-19-lite-single.js', name: 'Stockfish 19 (lite)' },
     { file: 'stockfish-19-asm.js', name: 'Stockfish 19 (compatibility mode, slower)' },
@@ -48,19 +52,24 @@ async function startEngine(): Promise<void> {
     try {
       engine = new Engine(workerTransport(ENGINE_BASE + build.file));
       await engine.whenReady();
-      analyzer = new Analyzer(engine);
+      engineState = 'ready';
       $('engine-status').textContent = `Engine: ${build.name}`;
       render();
-      return;
+      return engine;
     } catch (err) {
       console.warn(`Could not start ${build.file}:`, err);
       engine?.terminate();
     }
   }
+  engineState = 'failed';
   $('engine-status').textContent = 'The engine could not start in this browser, so analysis is unavailable.';
   $('engine-status').classList.add('error');
   render();
+  throw new Error('No engine');
 }
+
+// Saved analyses can be shown while the engine is still loading.
+const analyzer = new Analyzer(startEngine());
 
 function depth(): number {
   return Number($<HTMLSelectElement>('depth').value);
@@ -76,38 +85,219 @@ function fens(): string[] {
 /** The review of move `index`, if both positions around it have been evaluated. */
 function reviewAt(index: number): MoveReview | undefined {
   const ply = game.plies[index];
-  const before = analyzer?.get(ply.fenBefore);
-  const after = analyzer?.get(ply.fenAfter);
+  const before = analyzer.get(ply.fenBefore);
+  const after = analyzer.get(ply.fenAfter);
   return before && after ? reviewMove(uciOf(ply), ply.color, before, after) : undefined;
 }
 
+function firstMover(): 'w' | 'b' {
+  return game.startFen.split(' ')[1] === 'b' ? 'b' : 'w';
+}
+
 async function analyzeGame(): Promise<void> {
-  if (!analyzer || analyzing || game.plies.length === 0) return;
+  if (engineState !== 'ready' || analyzing || game.plies.length === 0) return;
   analyzing = true;
+  const gameId = currentGameId;
   render();
   const all = fens();
   const moves = game.plies.map(p => ({ uci: uciOf(p), color: p.color }));
-  const finished = await analyzer.analyzeGame(all, moves, depth(), (done, total) => {
-    $('progress-fill').style.width = `${(100 * done) / total}%`;
-    $('progress-text').textContent = done < total ? `Analyzing ${done + 1} / ${total}…` : 'Double-checking…';
-    render();
-  });
+  let finished = false;
+  try {
+    finished = await analyzer.analyzeGame(all, moves, depth(), (done, total) => {
+      $('progress-fill').style.width = `${(100 * done) / total}%`;
+      $('progress-text').textContent = done < total ? `Analyzing ${done + 1} / ${total}…` : 'Double-checking…';
+      render();
+    });
+  } catch {
+    toast('The engine stopped working. Reload the page to try again.');
+  }
   analyzing = false;
+  if (finished && gameId && gameId === currentGameId) saveAnalysis(gameId, all);
   render();
   if (finished) toast('Analysis complete. Step through the moves to read the explanations.');
 }
 
+/** Remembers a finished analysis, so reopening the game later shows it at once. */
+function saveAnalysis(id: string, positions: string[]): void {
+  const evals = positions.map(f => analyzer.get(f)).filter((e): e is PositionEval => !!e);
+  library.saveEvals(id, evals);
+  const s = summarize(game.plies.map((_, i) => reviewAt(i)), firstMover());
+  library.setAccuracy(id, { w: Math.round(s.w.accuracy), b: Math.round(s.b.accuracy) });
+}
+
 /** Makes sure the positions needed for the current view are evaluated, one at a time. */
 function requestLiveEvaluation(): void {
-  if (!analyzer) return;
+  if (engineState === 'failed' || currentView !== 'review') return;
   const wanted = [game.fen(), game.lastPly()?.fenBefore].filter((f): f is string => !!f);
-  const missing = wanted.find(f => !analyzer!.get(f));
+  const missing = wanted.find(f => !analyzer.get(f));
   if (missing) analyzer.requestLive(missing, Math.min(LIVE_DEPTH, depth()), () => render());
 }
 
-// ---------- rendering ----------
+// ---------- views ----------
+
+type View = 'games' | 'review';
+let currentView: View = 'games';
+
+function route(): void {
+  currentView = location.hash === '#review' ? 'review' : 'games';
+  $('view-games').hidden = currentView !== 'games';
+  $('view-review').hidden = currentView !== 'review';
+  document.querySelectorAll<HTMLAnchorElement>('.tabs a').forEach(a => {
+    if (a.dataset.view === currentView) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  document.body.dataset.view = currentView;
+  if (currentView === 'review') {
+    board.redrawAll(); // the board was hidden, so its size must be measured again
+    render();
+  } else {
+    renderLibrary();
+  }
+}
+
+function openSaved(saved: SavedGame): void {
+  try {
+    game.loadPgn(saved.pgn);
+  } catch (err) {
+    toast((err as Error).message);
+    return;
+  }
+  analyzer.cancelGame();
+  analyzer.seed(library.loadEvals(saved.id));
+  currentGameId = saved.id;
+  game.goTo(0);
+  if (location.hash === '#review') route();
+  else location.hash = '#review';
+}
+
+// ---------- My games ----------
+
+function renderLibrary(): void {
+  const games = library.list().sort((a, b) => b.addedAt - a.addedAt);
+  $('game-count').textContent = games.length ? `(${games.length})` : '';
+  const list = $('game-list');
+  if (games.length === 0) {
+    list.replaceChildren(h('li', 'empty', 'No games yet. Paste a PGN or choose a file to add your first game.'));
+    return;
+  }
+  list.replaceChildren(
+    ...games.map(g => {
+      const open = h('button', 'game-open');
+      open.append(
+        h('span', 'game-players', `${g.white} – ${g.black}`),
+        h(
+          'span',
+          'game-meta',
+          [g.result !== '*' ? g.result : '', g.date, `${Math.ceil(g.moves / 2)} moves`, g.event].filter(Boolean).join(' · '),
+        ),
+      );
+      if (g.accuracy) {
+        open.append(h('span', 'game-acc', `Accuracy ○ ${g.accuracy.w}% · ● ${g.accuracy.b}%`));
+      } else {
+        open.append(h('span', 'game-acc muted', 'Not analyzed yet'));
+      }
+      open.addEventListener('click', () => openSaved(g));
+      const del = h('button', 'game-delete', '×');
+      del.title = 'Delete this game';
+      del.setAttribute('aria-label', `Delete ${g.white} – ${g.black}`);
+      del.addEventListener('click', () => {
+        if (!confirm(`Delete ${g.white} – ${g.black}?`)) return;
+        library.remove(g.id);
+        if (currentGameId === g.id) currentGameId = undefined;
+        renderLibrary();
+      });
+      return h('li', 'game-item', open, del);
+    }),
+  );
+}
+
+const pgnText = $<HTMLTextAreaElement>('pgn-text');
+const importError = $('import-error');
+
+/** Turns pasted text into saved games; opens the game when there is just one. */
+function addGames(text: string): void {
+  importError.textContent = '';
+  const parts = splitPgnGames(text);
+  if (parts.length === 0) {
+    importError.textContent = 'Paste a PGN or choose a file first.';
+    return;
+  }
+  const entries: Omit<SavedGame, 'id' | 'addedAt'>[] = [];
+  let failures = 0;
+  let lastError = '';
+  for (const pgn of parts) {
+    const g = new Game();
+    try {
+      g.loadPgn(pgn);
+    } catch (err) {
+      failures++;
+      lastError = (err as Error).message;
+      continue;
+    }
+    entries.push({
+      pgn,
+      white: g.headers.White ?? 'White',
+      black: g.headers.Black ?? 'Black',
+      result: g.headers.Result ?? '*',
+      date: formatDate(g.headers.Date),
+      event: g.headers.Event,
+      moves: g.plies.length,
+    });
+  }
+  if (entries.length === 0) {
+    importError.textContent = lastError;
+    return;
+  }
+  let saved: SavedGame[];
+  try {
+    saved = library.add(entries);
+  } catch (err) {
+    importError.textContent = (err as Error).message;
+    return;
+  }
+  pgnText.value = '';
+  if (failures) toast(`${failures} game${failures > 1 ? 's' : ''} could not be read and ${failures > 1 ? 'were' : 'was'} skipped.`);
+  if (saved.length === 1) {
+    openSaved(saved[0]);
+  } else {
+    renderLibrary();
+    toast(`Added ${saved.length} games. Pick one to review it.`);
+  }
+}
+
+$('import-form').addEventListener('submit', e => {
+  e.preventDefault();
+  addGames(pgnText.value);
+});
+$<HTMLInputElement>('pgn-file').addEventListener('change', async e => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (file) addGames(await file.text());
+});
+pgnText.addEventListener('dragover', e => {
+  e.preventDefault();
+  pgnText.classList.add('drag');
+});
+pgnText.addEventListener('dragleave', () => pgnText.classList.remove('drag'));
+pgnText.addEventListener('drop', async e => {
+  e.preventDefault();
+  pgnText.classList.remove('drag');
+  const file = e.dataTransfer?.files[0];
+  if (file) addGames(await file.text());
+});
+$('empty-board').addEventListener('click', () => {
+  analyzer.cancelGame();
+  currentGameId = undefined;
+  game.reset();
+  // the link itself switches to #review; if already there, re-render
+  if (location.hash === '#review') route();
+});
+
+// ---------- rendering (Review) ----------
 
 function render(): void {
+  if (currentView !== 'review') return;
   const status = game.status();
   const last = game.lastPly();
   const turnColor: Color = status.turn === 'w' ? 'white' : 'black';
@@ -145,7 +335,7 @@ function arrows(review: MoveReview | undefined, lesson: ReturnType<typeof explai
     if (lesson.reply) shapes.push(shape(lesson.reply.uci, 'red'));
     return shapes;
   }
-  const current = analyzer?.get(game.fen());
+  const current = analyzer.get(game.fen());
   if ($<HTMLInputElement>('show-best').checked && current?.best) return [shape(current.best, 'blue')];
   return [];
 }
@@ -167,13 +357,13 @@ function renderStatus(status: ReturnType<Game['status']>): void {
 }
 
 function renderPlayers(): void {
-  const h = game.headers;
-  const name = (c: 'White' | 'Black') => (h[c] ? `${h[c]}${h[`${c}Elo`] ? ` (${h[`${c}Elo`]})` : ''}` : c);
+  const hd = game.headers;
+  const name = (c: 'White' | 'Black') => (hd[c] ? `${hd[c]}${hd[`${c}Elo`] ? ` (${hd[`${c}Elo`]})` : ''}` : c);
   const [top, bottom] = orientation === 'white' ? (['Black', 'White'] as const) : (['White', 'Black'] as const);
   $('player-top').textContent = `${top === 'White' ? '○' : '●'} ${name(top)}`;
   $('player-bottom').textContent = `${bottom === 'White' ? '○' : '●'} ${name(bottom)}`;
 
-  const info = [h.Event, h.Date?.replace(/\./g, '-'), h.Result && h.Result !== '*' ? `Result: ${h.Result}` : '']
+  const info = [hd.Event, formatDate(hd.Date), hd.Result && hd.Result !== '*' ? `Result: ${hd.Result}` : '']
     .filter(Boolean)
     .join(' · ');
   $('game-info').textContent = info;
@@ -182,7 +372,7 @@ function renderPlayers(): void {
 function renderMoves(): void {
   const list = $('moves');
   list.replaceChildren();
-  const startsWithBlack = game.startFen.split(' ')[1] === 'b';
+  const startsWithBlack = firstMover() === 'b';
   const firstMoveNumber = Number(game.startFen.split(' ')[5]) || 1;
 
   let row: HTMLLIElement | undefined;
@@ -190,21 +380,14 @@ function renderMoves(): void {
     const index = i + (startsWithBlack ? 1 : 0);
     if (index % 2 === 0 || !row) {
       row = document.createElement('li');
-      const num = document.createElement('span');
-      num.className = 'num';
-      num.textContent = `${firstMoveNumber + Math.floor(index / 2)}.`;
-      row.append(num);
-      if (index % 2 === 1) row.append(placeholder());
+      row.append(h('span', 'num', `${firstMoveNumber + Math.floor(index / 2)}.`));
+      if (index % 2 === 1) row.append(h('span', 'move placeholder', '…'));
       list.append(row);
     }
-    const btn = document.createElement('button');
-    btn.className = 'move';
-    btn.textContent = ply.san;
+    const btn = h('button', 'move', ply.san);
     const cls = reviewAt(i)?.classification;
-    if (cls && LABELS[cls].glyph && ['inaccuracy', 'mistake', 'blunder'].includes(cls)) {
-      const glyph = document.createElement('span');
-      glyph.className = `glyph ${cls}`;
-      glyph.textContent = LABELS[cls].glyph;
+    if (cls && ['inaccuracy', 'mistake', 'blunder'].includes(cls)) {
+      const glyph = h('span', `glyph ${cls}`, LABELS[cls].glyph);
       glyph.title = LABELS[cls].name;
       btn.append(glyph);
       btn.setAttribute('aria-label', `${ply.san}, ${LABELS[cls].name}`);
@@ -216,19 +399,30 @@ function renderMoves(): void {
   });
 
   if (game.plies.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'empty';
-    empty.textContent = 'Play a move on the board or import a PGN.';
-    list.append(empty);
+    list.append(h('li', 'empty', 'Play a move on the board, or open a game from My games.'));
   }
-  list.querySelector('.current')?.scrollIntoView({ block: 'nearest' });
+  keepCurrentMoveVisible(list);
 }
 
-function placeholder(): HTMLSpanElement {
-  const s = document.createElement('span');
-  s.className = 'move placeholder';
-  s.textContent = '…';
-  return s;
+/**
+ * Scrolls the move list (only the list, never the page) so the current move is visible.
+ * scrollIntoView() would also scroll the page, which made the screen jump on phones.
+ */
+function keepCurrentMoveVisible(list: HTMLElement): void {
+  const current = list.querySelector<HTMLElement>('.current');
+  if (!current) {
+    if (game.cursor === 0) list.scrollTop = 0;
+    return;
+  }
+  const top = current.offsetTop;
+  const bottom = top + current.offsetHeight;
+  if (top < list.scrollTop) list.scrollTop = top - 4;
+  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight + 4;
+}
+
+/** PGN date "2026.10.01" → "2026-10-01"; unknown parts ("1858.??.??") are dropped. */
+function formatDate(date: string | undefined): string | undefined {
+  return date?.replace(/\./g, '-').replace(/-\?\?/g, '') || undefined;
 }
 
 /** Builds an element with text content (never HTML, so PGN text can't inject markup). */
@@ -243,7 +437,7 @@ function renderLesson(index: number, review: MoveReview | undefined, lesson: Ret
   const el = $('lesson');
   if (index < 0 || !lesson) {
     el.replaceChildren(
-      h('p', 'muted', game.plies.length ? 'Start position. Press → to go through the game.' : 'Make a move, or import a game to study it.'),
+      h('p', 'muted', game.plies.length ? 'Start position. Press ▶ to go through the game.' : 'Make a move on the board, or open a game from My games.'),
     );
     return;
   }
@@ -268,25 +462,20 @@ function renderLesson(index: number, review: MoveReview | undefined, lesson: Ret
   const bad = review && ['inaccuracy', 'mistake', 'blunder'].includes(review.classification);
   if (bad) {
     parts.push(
-      h(
-        'p',
-        'lesson-legend',
-        h('span', 'arrow-key green', ''),
-        ' better move ',
-        h('span', 'arrow-key red', ''),
-        ' the reply it allows',
-      ),
+      h('p', 'lesson-legend', h('span', 'arrow-key green', ''), ' better move ', h('span', 'arrow-key red', ''), ' the reply it allows'),
     );
   }
   if (!review) {
-    parts.push(h('p', 'muted', analyzer ? 'The engine is looking at this move…' : 'Waiting for the engine…'));
+    parts.push(
+      h('p', 'muted', engineState === 'failed' ? 'No engine verdict: the engine is unavailable.' : 'The engine is looking at this move…'),
+    );
   }
   if (ply.comment) parts.push(h('blockquote', 'pgn-comment', ply.comment));
   el.replaceChildren(...parts);
 }
 
 function renderEvalBar(): void {
-  const current = analyzer?.get(game.fen());
+  const current = analyzer.get(game.fen());
   const bar = $('eval-bar');
   bar.classList.toggle('flipped', orientation === 'black');
   bar.classList.toggle('pending', !current);
@@ -303,9 +492,8 @@ function renderEvalBar(): void {
 }
 
 function renderGraph(): void {
-  const all = fens();
-  const points: GraphPoint[] = all.map((fen, i) => {
-    const e = analyzer?.get(fen);
+  const points: GraphPoint[] = fens().map((fen, i) => {
+    const e = analyzer.get(fen);
     const ply = game.plies[i - 1];
     return {
       value: e ? winChance(e.score) : undefined,
@@ -320,7 +508,7 @@ function renderGraph(): void {
 function renderAnalysisControls(): void {
   const btn = $<HTMLButtonElement>('analyze');
   const allDone = game.plies.length > 0 && game.plies.every((_, i) => reviewAt(i));
-  btn.disabled = !analyzer || analyzing || game.plies.length === 0;
+  btn.disabled = engineState !== 'ready' || analyzing || game.plies.length === 0;
   btn.textContent = analyzing ? 'Analyzing…' : allDone ? 'Re-analyze' : 'Analyze game';
   $<HTMLSelectElement>('depth').disabled = analyzing;
   $('progress').hidden = !analyzing;
@@ -330,8 +518,7 @@ function renderAnalysisControls(): void {
     summaryEl.hidden = true;
     return;
   }
-  const firstMover = game.startFen.split(' ')[1] === 'b' ? 'b' : 'w';
-  const s = summarize(game.plies.map((_, i) => reviewAt(i)), firstMover);
+  const s = summarize(game.plies.map((_, i) => reviewAt(i)), firstMover());
   const row = (side: 'w' | 'b') => {
     const p = s[side];
     const name = game.headers[side === 'w' ? 'White' : 'Black'] ?? (side === 'w' ? 'White' : 'Black');
@@ -370,6 +557,7 @@ async function onUserMove(orig: Key, dest: Key): Promise<void> {
     if (!promotion) return render(); // cancelled: put the pawn back
   }
   game.play(from, to, promotion);
+  currentGameId = undefined; // the moves no longer match the saved game
   render();
 }
 
@@ -405,96 +593,6 @@ function goTo(ply: number): void {
   render();
 }
 
-// ---------- PGN import ----------
-
-const importDialog = $<HTMLDialogElement>('import-dialog');
-const pgnText = $<HTMLTextAreaElement>('pgn-text');
-const gameSelect = $<HTMLSelectElement>('game-select');
-const importError = $('import-error');
-let fileGames: string[] = [];
-
-function openImport(): void {
-  importError.textContent = '';
-  pgnText.value = '';
-  fileGames = [];
-  $('game-pick').hidden = true;
-  importDialog.showModal();
-  pgnText.focus();
-}
-
-function useText(text: string): void {
-  fileGames = splitPgnGames(text);
-  const pick = $('game-pick');
-  if (fileGames.length > 1) {
-    gameSelect.replaceChildren(
-      ...fileGames.map((g, i) => {
-        const tag = (k: string) => g.match(new RegExp(`\\[${k} "([^"]*)"\\]`))?.[1] ?? '?';
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = `${i + 1}. ${tag('White')} – ${tag('Black')}  ${tag('Result')}  (${tag('Date')})`;
-        return opt;
-      }),
-    );
-    pick.hidden = false;
-    pgnText.value = fileGames[0];
-  } else {
-    pick.hidden = true;
-    pgnText.value = text;
-  }
-  importError.textContent = '';
-}
-
-async function readFile(file: File | undefined): Promise<void> {
-  if (!file) return;
-  useText(await file.text());
-}
-
-$<HTMLInputElement>('pgn-file').addEventListener('change', e => {
-  const input = e.target as HTMLInputElement;
-  void readFile(input.files?.[0]);
-  input.value = '';
-});
-gameSelect.addEventListener('change', () => (pgnText.value = fileGames[Number(gameSelect.value)]));
-pgnText.addEventListener('dragover', e => {
-  e.preventDefault();
-  pgnText.classList.add('drag');
-});
-pgnText.addEventListener('dragleave', () => pgnText.classList.remove('drag'));
-pgnText.addEventListener('drop', e => {
-  e.preventDefault();
-  pgnText.classList.remove('drag');
-  void readFile(e.dataTransfer?.files[0]);
-});
-pgnText.addEventListener('paste', e => {
-  // A pasted archive with several games gets the same game picker as a file.
-  const text = e.clipboardData?.getData('text') ?? '';
-  if (splitPgnGames(text).length > 1) {
-    e.preventDefault();
-    useText(text);
-  }
-});
-
-$('import-form').addEventListener('submit', e => {
-  if ((e.submitter as HTMLButtonElement | null)?.value !== 'load') return;
-  e.preventDefault();
-  const text = pgnText.value.trim();
-  if (!text) {
-    importError.textContent = 'Paste a PGN or choose a file first.';
-    return;
-  }
-  try {
-    game.loadPgn(text);
-  } catch (err) {
-    importError.textContent = (err as Error).message;
-    return;
-  }
-  importDialog.close();
-  analyzer?.cancelGame();
-  game.goTo(0);
-  render();
-  toast(game.plies.length ? `Loaded ${game.plies.length} moves. Press "Analyze game" to review them.` : 'Position loaded.');
-});
-
 // ---------- controls ----------
 
 function flip(): void {
@@ -507,15 +605,8 @@ $('nav-prev').addEventListener('click', () => goTo(game.cursor - 1));
 $('nav-next').addEventListener('click', () => goTo(game.cursor + 1));
 $('nav-end').addEventListener('click', () => goTo(game.plies.length));
 $('flip').addEventListener('click', flip);
-$('import').addEventListener('click', openImport);
 $('analyze').addEventListener('click', () => void analyzeGame());
 $('show-best').addEventListener('change', () => render());
-$('new-game').addEventListener('click', () => {
-  if (game.plies.length > 0 && !confirm('Start a new game? The current moves will be cleared.')) return;
-  analyzer?.cancelGame();
-  game.reset();
-  render();
-});
 $('copy-pgn').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(game.pgn());
@@ -541,7 +632,7 @@ depthSelect.addEventListener('change', () => {
 });
 
 document.addEventListener('keydown', e => {
-  if (document.querySelector('dialog[open]')) return;
+  if (currentView !== 'review' || document.querySelector('dialog[open]')) return;
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const actions: Record<string, () => void> = {
@@ -570,5 +661,5 @@ function toast(message: string): void {
   toastTimer = window.setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-render();
-void startEngine();
+window.addEventListener('hashchange', route);
+route();
