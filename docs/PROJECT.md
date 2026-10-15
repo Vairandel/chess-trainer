@@ -46,7 +46,7 @@ flowchart TD
 
 | Decision | Choice | Rationale | Fallback |
 |---|---|---|---|
-| Analysis engine | Stockfish (browser/WASM) | Strongest analysis, catches deep tactics | Custom built-in eval engine (material, activity, king safety, shallow search) |
+| Analysis engine | Stockfish 19 lite, single-threaded WASM (1.8 MB, in `public/engine/`) | Strong, small, needs no special server headers | Stockfish 19 asm.js build (slower, runs in any browser); clear message if both fail |
 | Game input | PGN paste **and** file upload | Both requested by user | Paste only |
 | Opponent strength | Adjustable ~800–1800 Elo | Matches user level and progression path | Fixed 1500 |
 | Language of annotations | English | Doubles as English learning practice | — |
@@ -58,7 +58,7 @@ flowchart TD
 ## 4. Roadmap & Status
 
 - [x] **Phase 1 — Interactive board**: move validation, all special moves, PGN import, navigation — *approved 2026-10-15*
-- [ ] **Phase 2 — Game analysis**: per-move evaluation, comments on every move, eval graph
+- [ ] **Phase 2 — Game analysis**: per-move evaluation, comments on every move, eval graph — *built, waiting for Randi's approval*
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 
@@ -85,4 +85,12 @@ Every move gets annotations from **three layers**:
 
 ---
 
-*Last updated: 2026-10-15 — Phase 1 approved (Vite + TypeScript, chess.js, @lichess-org/chessground). Ready for Phase 2.*
+### How moves are graded
+
+Each position is searched by Stockfish (MultiPV 2). Scores become White's win chance with the Lichess formula `2 / (1 + e^(−0.00368208·cp)) − 1`. The win chance the mover loses decides the label: ≥ 0.3 blunder, ≥ 0.2 mistake, ≥ 0.1 inaccuracy. The engine's own top move is always "best". When two neighbouring evaluations contradict each other, both positions are searched 6 plies deeper. Accuracy per move uses the Lichess formula and is averaged per player.
+
+### How explanations are made
+
+`src/teach.ts` reads the board (chess.js) and the engine lines. It names hanging pieces, forks and double attacks, pins (only those that matter: to the king, the queen, or a minor piece in front of a rook), discovered and double checks, recaptures, development, central pawns and castling. For bad moves it says what goes wrong, in this order: a forced mate allowed or missed, material lost (counted from before the move so fair trades are not called losses), a missed win when it explains most of the drop, the opponent's tactic, and otherwise the evaluation change. Every tactical claim must be confirmed by the board or the engine line.
+
+*Last updated: 2026-10-15 — Phase 2 built (Stockfish analysis, move grades, explanations, eval bar and graph), waiting for approval.*

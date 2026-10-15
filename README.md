@@ -15,6 +15,13 @@ npm run build    # production files in dist/
 
 - `src/game.ts`: the game model. It holds the moves, the cursor, PGN import/export and the game status, on top of [chess.js](https://github.com/jhlywa/chess.js).
 - `src/main.ts`: the page. It runs the board ([chessground](https://github.com/lichess-org/chessground), the Lichess board), the move list, navigation and the import dialog.
-- `src/game.test.ts`: tests for special moves, game endings and PGN formats from chess.com and Lichess.
+- `src/engine.ts`: talks to Stockfish (UCI protocol) running in a Web Worker.
+- `src/analyzer.ts`: evaluates positions, remembers the results by FEN, analyzes whole games.
+- `src/review.ts`: win chances, move grades (best → blunder) and accuracy.
+- `src/teach.ts`: the plain-English explanation of each move.
+- `src/graph.ts`: the evaluation graph.
+- `public/engine/`: Stockfish 19 builds from [stockfish.js](https://github.com/nmrugg/stockfish.js) (lite WASM + asm.js fallback).
 
-chessground is GPL-3.0 licensed. If the app is published online, its source code has to be available too.
+Tests (`npm test`) cover the rules, PGN formats, engine protocol, grading and explanations. The engine and explanation tests run the real Stockfish build under Node.
+
+chessground and Stockfish are GPL-3.0 licensed (see `public/engine/COPYING.txt`), so this project's source is public.
