@@ -203,7 +203,11 @@ function route(): void {
   } else if (currentView === 'settings') {
     renderSettings();
   } else if (currentView === 'study') {
-    studyView ??= new StudyView({ coordinates: settings.coordinates, isActive: () => currentView === 'study' });
+    studyView ??= new StudyView({
+      coordinates: settings.coordinates,
+      isActive: () => currentView === 'study',
+      evaluate: fen => analyzer.evaluate(fen, 14),
+    });
     studyView.show(arg);
   } else if (currentView === 'play') {
     playView ??= new PlayView({

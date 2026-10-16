@@ -66,7 +66,9 @@ flowchart TD
 - [ ] **Phase 3A — Play against the computer**: strength 800–1800 (own weakening: depth by level + a random choice among Stockfish's 6 best moves, weighted by how much each loses; Stockfish's UCI_Elo stops at ~1320), choose your color, hint / take back / resign, game saved during play, "Review this game" saves it to My games and analyzes it. *Built, waiting for Randi's approval.*
 - [ ] **Phase 3B — Study library**: traps, openings, legendary games with a comment on every move.
   - Part 1 (built, waiting for approval): 14 traps — 3 in Randi's openings (Alekhine ×2, Catalan setup) and 11 classics — each with a comment on every move, the right move as a variation, ✓ Do / ✗ Don't, and "Test yourself". Every line is checked by Stockfish in `src/study/traps.test.ts` (the mistake costs, the trap wins, the recommended moves hold).
-  - Next: opening chapters (Alekhine main lines, the Catalan setup and the c3 plan against ...c5 once the move order is confirmed), then legendary games.
+  - Part 2: opening chapters with Learn + Practice (an opening trainer: you play your side from memory; the computer plays the opponent along one line at a time; moves outside the repertoire are judged by the engine as playable or a mistake; progress per line, with lines missed coming back first). Every repertoire move is checked by Stockfish in `src/study/openings.test.ts` (within 0.5 pawn of the best, or a simpler move keeping +0.8).
+    - White repertoire (done): Catalan vs ...d5/...e6; vs ...d5 and ...c5 (play c4 — Tarrasch with g3; 3.c3 is passive and e4 must be prepared); vs 1...c5 (the c3 plan, but d4 at once vs ...d5); vs the King's Indian setup.
+    - Next: Black vs 1.e4 (Alekhine), Black vs 1.d4 (Queen's Gambit Declined setup), then legendary games.
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 

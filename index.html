@@ -39,27 +39,49 @@
 
         <aside class="panel">
           <div class="study-head">
-            <a class="back-link" href="#study">← All traps</a>
+            <a class="back-link" href="#study">← Study library</a>
             <h2 id="study-title"></h2>
             <div class="study-meta" id="study-meta"></div>
+            <div class="study-modes" id="study-modes" role="group" aria-label="Mode" hidden>
+              <button id="study-mode-learn" aria-pressed="true">📖 Learn</button>
+              <button id="study-mode-practice" aria-pressed="false">🎯 Practice</button>
+            </div>
           </div>
           <section class="lesson study-comment" id="study-comment" aria-live="polite"></section>
           <ol class="moves" id="study-moves" aria-label="Moves"></ol>
-          <div class="study-test">
+          <section class="study-practice" id="study-practice" hidden>
+            <div class="practice-top">
+              <strong id="practice-prompt" class="test-prompt"></strong>
+              <span class="muted" id="practice-progress"></span>
+            </div>
+            <p class="practice-moves" id="practice-moves"></p>
+            <p class="test-msg" id="practice-msg" role="status" aria-live="polite"></p>
+            <div class="practice-actions">
+              <button id="practice-show" hidden>Show the move</button>
+              <button class="primary" id="practice-next" hidden>Next line ▶</button>
+            </div>
+          </section>
+          <div class="study-test" id="study-test">
             <p class="test-prompt" id="study-test-prompt" hidden></p>
             <p class="test-msg" id="study-test-msg" role="status" aria-live="polite"></p>
             <button class="primary" id="study-test-btn">🎯 Test yourself</button>
             <button id="study-show" hidden>Show the answer</button>
           </div>
-          <nav class="nav" aria-label="Move navigation">
+          <nav class="nav" id="study-nav" aria-label="Move navigation">
             <button id="study-start" title="Start (Home)" aria-label="Go to start">⏮</button>
             <button id="study-prev" title="Previous move (←)" aria-label="Previous move">◀</button>
             <button id="study-next" title="Next move (→)" aria-label="Next move">▶</button>
             <button id="study-end" title="End (End)" aria-label="Go to end">⏭</button>
           </nav>
-          <div class="dodont">
+          <div class="dodont" id="study-dodont">
             <div class="do"><h3>✓ Do</h3><ul id="study-dos"></ul></div>
             <div class="dont"><h3>✗ Don't</h3><ul id="study-donts"></ul></div>
+          </div>
+          <div class="study-plans" id="study-plans" hidden>
+            <h3>Plans and ideas</h3>
+            <ul id="study-plans-list"></ul>
+            <h3 id="study-plans-traps-title">Related traps</h3>
+            <ul id="study-plans-traps"></ul>
           </div>
         </aside>
       </div>

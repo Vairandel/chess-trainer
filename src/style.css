@@ -413,6 +413,66 @@ button.primary:hover:not(:disabled) {
 .study-chapter .nav {
   grid-template-columns: repeat(4, 1fr);
 }
+.study-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+.study-modes button[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.chip-opening {
+  color: var(--inaccuracy);
+  border-color: currentColor;
+}
+.study-practice {
+  display: grid;
+  gap: 8px;
+}
+.study-practice p {
+  margin: 0;
+}
+.practice-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.practice-moves {
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.practice-actions {
+  display: flex;
+  gap: 6px;
+}
+.practice-actions button {
+  flex: 1;
+}
+.test-msg.info {
+  color: var(--text);
+}
+.study-plans {
+  font-size: 13px;
+}
+.study-plans h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--accent);
+}
+.study-plans ul {
+  margin: 0 0 8px;
+  padding-left: 16px;
+}
+.study-plans li + li {
+  margin-top: 4px;
+}
 
 /* ---------- Play ---------- */
 
@@ -1484,8 +1544,10 @@ dialog::backdrop {
   .play-view .board-col,
   .study-chapter .board-col { width: auto; }
   .study-head { order: 1; }
-  .study-test { order: 6; }
-  .dodont { order: 7; grid-template-columns: 1fr; }
+  .study-test,
+  .study-practice { order: 6; }
+  .dodont,
+  .study-plans { order: 7; grid-template-columns: 1fr; }
   .study-chapter .moves { max-height: 150px; }
 
   .player {
