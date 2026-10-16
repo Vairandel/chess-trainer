@@ -25,6 +25,7 @@ npm run build    # production files in dist/
 - `src/dom.ts`: small page helpers shared by the pages.
 - `src/studyView.ts` and `src/study/`: the Study page — trap chapters (`traps.ts`), opening chapters (`openings.ts`), the opening trainer logic (`trainer.ts`) and saved progress (`progress.ts`). Their tests check every line with Stockfish.
 - `src/studyLibrary.ts`: the Study library (tabs, Continue box, overview, search and filters).
+- `src/puzzleView.ts` and `src/puzzles/`: the Puzzles page — the puzzle set (`data.json`, from the [Lichess puzzle database](https://database.lichess.org/#puzzles), CC0), theme explanations and the trainer logic (rating, missed puzzles). `scripts/select-puzzles.mjs` rebuilds the set.
 - `src/settings.ts`: appearance settings (theme, board colors, pieces, accent, coordinates).
 - `public/pieces/`: extra piece sets from Lichess, with their authors and licenses in `CREDITS.md`.
 - `public/engine/`: Stockfish 19 builds from [stockfish.js](https://github.com/nmrugg/stockfish.js) (lite WASM + asm.js fallback).

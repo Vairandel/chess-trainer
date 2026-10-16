@@ -641,6 +641,97 @@ button.primary:hover:not(:disabled) {
   margin-top: 4px;
 }
 
+/* ---------- Puzzles ---------- */
+
+.puzzle-view .board-col {
+  width: var(--board);
+}
+.puzzle-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.puzzle-score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.puzzle-score strong {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+#puzzle-change.up {
+  color: var(--best);
+  font-weight: 650;
+}
+#puzzle-change.down {
+  color: var(--blunder);
+  font-weight: 650;
+}
+.puzzle-recent {
+  display: flex;
+  gap: 3px;
+}
+.recent {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.recent.ok {
+  background: var(--best);
+}
+.recent.bad {
+  background: var(--blunder);
+}
+.puzzle-theme-row {
+  display: grid;
+  gap: 4px;
+}
+.puzzle-theme-row select {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.puzzle-idea {
+  min-height: 2.6em;
+}
+.puzzle-status p {
+  margin: 4px 0 0;
+}
+.puzzle-prompt {
+  font-weight: 650;
+  font-size: 16px;
+}
+.puzzle-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 6px;
+}
+.puzzle-actions button {
+  padding: 10px 6px;
+}
+.puzzle-info {
+  font-size: 13px;
+}
+.puzzle-info p {
+  margin: 0 0 4px;
+}
+.puzzle-themes {
+  margin: 0;
+  padding-left: 18px;
+}
+.puzzle-credit {
+  margin-top: auto;
+}
+
 /* ---------- Play ---------- */
 
 .play-view .board-col {
@@ -1138,7 +1229,8 @@ a.button:hover {
 }
 #board,
 #play-board,
-#study-board {
+#study-board,
+#puzzle-board {
   width: 100%;
   height: 100%;
 }
@@ -1709,7 +1801,15 @@ dialog::backdrop {
   .play-setup,
   .play-game { order: 4; }
   .play-view .board-col,
-  .study-chapter .board-col { width: auto; }
+  .study-chapter .board-col,
+  .puzzle-view .board-col { width: auto; }
+  /* puzzles on a phone: the task right under the board, then the rest */
+  .puzzle-head { order: 0; }
+  .puzzle-status { order: 4; }
+  .puzzle-actions { order: 5; }
+  .puzzle-info { order: 6; }
+  .puzzle-theme-row { order: 7; }
+  .puzzle-view .muted.small { order: 8; }
   .study-head { order: 1; }
   .study-test,
   .study-practice { order: 6; }

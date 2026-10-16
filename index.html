@@ -21,7 +21,7 @@
         <a href="#review" data-view="review">Review</a>
         <a href="#study" data-view="study">Study</a>
         <a href="#play" data-view="play">Play</a>
-        <span class="soon" title="Coming in Phase 4">Puzzles <small>soon</small></span>
+        <a href="#puzzles" data-view="puzzles">Puzzles</a>
       </nav>
       <a class="settings-link" href="#settings" data-view="settings" aria-label="Settings" title="Settings">⚙</a>
     </header>
@@ -85,6 +85,40 @@
           </div>
         </aside>
       </div>
+    </main>
+
+    <!-- ========== Puzzles ========== -->
+    <main class="view layout puzzle-view" id="view-puzzles" hidden>
+      <section class="board-col">
+        <div class="board-row">
+          <div class="board-wrap"><div id="puzzle-board"></div></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="puzzle-head">
+          <div class="puzzle-score">
+            <span class="muted small">Puzzle rating</span>
+            <strong id="puzzle-rating">1500</strong>
+            <span id="puzzle-change"></span>
+          </div>
+          <div class="puzzle-recent" id="puzzle-recent" aria-label="Last results"></div>
+        </div>
+        <div class="puzzle-theme-row">
+          <label class="setup-label" for="puzzle-theme">Theme</label>
+          <select id="puzzle-theme"><option value="mixed">Mixed (all themes)</option></select>
+          <p class="puzzle-idea muted small" id="puzzle-idea"></p>
+        </div>
+        <section class="lesson puzzle-status" id="puzzle-status" aria-live="polite"></section>
+        <div class="puzzle-actions">
+          <button id="puzzle-hint" title="Highlight the piece to move (counts as a miss)">💡 Hint</button>
+          <button id="puzzle-solution">Show solution</button>
+          <button class="primary" id="puzzle-next">Skip ▶</button>
+        </div>
+        <div class="puzzle-info" id="puzzle-info" hidden></div>
+        <p class="muted small" id="puzzle-missed"></p>
+        <p class="muted small puzzle-credit">Puzzles from the <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener">Lichess puzzle database</a> (CC0).</p>
+      </aside>
     </main>
 
     <!-- ========== Play ========== -->

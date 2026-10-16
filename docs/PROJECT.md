@@ -73,7 +73,9 @@ flowchart TD
     - Study library reorganized: Openings / Traps / Famous games (soon) tabs; a Continue box (last chapter, lines to review linking straight into Practice); progress overview per repertoire and traps studied; search, side and status filters. A trap counts as studied when its test is solved without "Show the answer".
     - Next: legendary games; more chapters on request (Randi's own trap list, lost games).
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
-- [ ] **Phase 4 — Puzzles**: themed tactics trainer
+- [ ] **Phase 4 — Puzzles**: themed tactics trainer — *built, waiting for Randi's approval*
+  - 1,150 puzzles chosen from the Lichess puzzle database (CC0, 6.2M puzzles): rated 900–2100, well tested (RD ≤ 80, popularity ≥ 85, ≥ 2000 plays), about 6 per 100 rating points in each of 16 themes. Selection script: `scripts/select-puzzles.mjs`. Every solution is replayed with chess.js; a sample of 40 is checked against Stockfish in `src/puzzles/data.test.ts`.
+  - Training by theme (with the idea of each theme), an Elo puzzle rating (K = 40 for the first 20 puzzles, then 20), missed puzzles (wrong move, hint or solution shown) coming back as unrated reviews after 5 others. Any checkmating move is accepted, as on Lichess.
 
 **Rule:** each phase must be tested and approved by Randi before starting the next. The current version is the stable base — never rebuild from scratch.
 

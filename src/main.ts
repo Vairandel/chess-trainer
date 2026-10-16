@@ -29,6 +29,7 @@ import {
   type Settings,
 } from './settings';
 import { PlayView } from './play';
+import { PuzzleView } from './puzzleView';
 import { StudyView } from './studyView';
 import { explainMove } from './teach';
 
@@ -179,13 +180,14 @@ function requestLiveEvaluation(): void {
 
 // ---------- views ----------
 
-type View = 'games' | 'review' | 'study' | 'play' | 'settings';
-const VIEWS: View[] = ['games', 'review', 'study', 'play', 'settings'];
+type View = 'games' | 'review' | 'study' | 'puzzles' | 'play' | 'settings';
+const VIEWS: View[] = ['games', 'review', 'study', 'puzzles', 'play', 'settings'];
 let currentView: View = 'games';
 
 /** The Play and Study pages have their own boards; they are created the first time they are opened. */
 let playView: PlayView | undefined;
 let studyView: StudyView | undefined;
+let puzzleView: PuzzleView | undefined;
 
 function route(): void {
   // "#study/fried-liver" → view "study", argument "fried-liver"
@@ -203,6 +205,9 @@ function route(): void {
     render();
   } else if (currentView === 'settings') {
     renderSettings();
+  } else if (currentView === 'puzzles') {
+    puzzleView ??= new PuzzleView({ coordinates: settings.coordinates });
+    void puzzleView.show();
   } else if (currentView === 'study') {
     studyView ??= new StudyView({
       coordinates: settings.coordinates,
@@ -239,6 +244,7 @@ function changeSettings(patch: Partial<Settings>): void {
     preview?.redrawAll();
     playView?.setCoordinates(settings.coordinates);
     studyView?.setCoordinates(settings.coordinates);
+    puzzleView?.setCoordinates(settings.coordinates);
   }
   renderSettings();
 }
