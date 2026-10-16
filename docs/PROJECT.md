@@ -65,6 +65,8 @@ flowchart TD
 - [x] **Theme editor** (between Phase 2 and 3): Settings page (⚙) with System / Light / Dark theme, six board color presets plus custom square colors, five accent colors, nine piece sets (Lichess sets with free licenses only, credited in `public/pieces/CREDITS.md`), coordinates on/off, live preview. Saved in the browser. *Approved 2026-10-15.*
 - [ ] **Phase 3A — Play against the computer**: strength 800–1800 (own weakening: depth by level + a random choice among Stockfish's 6 best moves, weighted by how much each loses; Stockfish's UCI_Elo stops at ~1320), choose your color, hint / take back / resign, game saved during play, "Review this game" saves it to My games and analyzes it. *Built, waiting for Randi's approval.*
 - [ ] **Phase 3B — Study library**: traps, openings, legendary games with a comment on every move.
+  - Part 1 (built, waiting for approval): 14 traps — 3 in Randi's openings (Alekhine ×2, Catalan setup) and 11 classics — each with a comment on every move, the right move as a variation, ✓ Do / ✗ Don't, and "Test yourself". Every line is checked by Stockfish in `src/study/traps.test.ts` (the mistake costs, the trap wins, the recommended moves hold).
+  - Next: opening chapters (Alekhine main lines, the Catalan setup and the c3 plan against ...c5 once the move order is confirmed), then legendary games.
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 

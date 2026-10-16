@@ -14,6 +14,7 @@ import { loadStockfish, type Engine } from './engine';
 import { Game, splitPgnGames, type MoveNode, type Ply, type PromotionPiece } from './game';
 import { EvalGraph, type GraphPoint } from './graph';
 import { Library, type SavedGame } from './library';
+import { renderMoveTree } from './moveList';
 import { formatScore, LABELS, reviewMove, summarize, winChance, type MoveReview, type PositionEval } from './review';
 import {
   ACCENTS,
@@ -28,6 +29,7 @@ import {
   type Settings,
 } from './settings';
 import { PlayView } from './play';
+import { StudyView } from './studyView';
 import { explainMove } from './teach';
 
 let settings = loadSettings();
@@ -177,15 +179,17 @@ function requestLiveEvaluation(): void {
 
 // ---------- views ----------
 
-type View = 'games' | 'review' | 'play' | 'settings';
-const VIEWS: View[] = ['games', 'review', 'play', 'settings'];
+type View = 'games' | 'review' | 'study' | 'play' | 'settings';
+const VIEWS: View[] = ['games', 'review', 'study', 'play', 'settings'];
 let currentView: View = 'games';
 
-/** The Play page has its own board and engine; both are created the first time it is opened. */
+/** The Play and Study pages have their own boards; they are created the first time they are opened. */
 let playView: PlayView | undefined;
+let studyView: StudyView | undefined;
 
 function route(): void {
-  const hash = location.hash.slice(1) as View;
+  // "#study/fried-liver" → view "study", argument "fried-liver"
+  const [hash, arg] = location.hash.slice(1).split('/') as [View, string | undefined];
   currentView = VIEWS.includes(hash) ? hash : 'games';
   for (const v of VIEWS) $(`view-${v}`).hidden = currentView !== v;
   document.querySelectorAll<HTMLAnchorElement>('a[data-view]').forEach(a => {
@@ -198,6 +202,9 @@ function route(): void {
     render();
   } else if (currentView === 'settings') {
     renderSettings();
+  } else if (currentView === 'study') {
+    studyView ??= new StudyView({ coordinates: settings.coordinates, isActive: () => currentView === 'study' });
+    studyView.show(arg);
   } else if (currentView === 'play') {
     playView ??= new PlayView({
       loadEngine: () => loadStockfish(ENGINE_BASE).then(r => r.engine),
@@ -226,6 +233,7 @@ function changeSettings(patch: Partial<Settings>): void {
     preview?.set({ coordinates: settings.coordinates });
     preview?.redrawAll();
     playView?.setCoordinates(settings.coordinates);
+    studyView?.setCoordinates(settings.coordinates);
   }
   renderSettings();
 }
@@ -553,92 +561,20 @@ function renderPlayers(): void {
   $('game-info').textContent = info;
 }
 
-/** A clickable move, with its error glyph once analyzed. `label` defaults to the SAN. */
-function moveButton(node: MoveNode, label = node.ply!.san): HTMLElement {
-  const ply = node.ply!;
-  const btn = h('button', 'move', label);
-  const cls = reviewOf(node)?.classification;
-  if (cls && ['inaccuracy', 'mistake', 'blunder'].includes(cls)) {
-    const glyph = h('span', `glyph ${cls}`, LABELS[cls].glyph);
-    glyph.title = LABELS[cls].name;
-    btn.append(glyph);
-    btn.setAttribute('aria-label', `${moveName(ply)}, ${LABELS[cls].name}`);
-  }
-  if (ply.comment) btn.classList.add('has-comment');
-  if (node === game.node) btn.classList.add('current');
-  btn.addEventListener('click', () => goTo(node));
-  return btn;
-}
-
-/**
- * The move list: the main line in two columns. After a move that has alternatives, the
- * alternatives are listed underneath, indented, each as a line of text that can hold further
- * (nested) variations in parentheses — like on Lichess.
- */
+/** The move tree, with error glyphs once a move is analyzed. */
 function renderMoves(): void {
-  const list = $('moves');
-  list.replaceChildren();
-  const number = (ply: Ply) => `${ply.fenBefore.split(' ')[5]}.`;
-
-  let row: HTMLLIElement | undefined;
-  for (let parent = game.root; parent.children.length; parent = parent.children[0]) {
-    const [main, ...alternatives] = parent.children;
-    const ply = main.ply!;
-    if (ply.color === 'w' || !row) {
-      row = document.createElement('li');
-      row.append(h('span', 'num', number(ply)));
-      if (ply.color === 'b') row.append(h('span', 'move placeholder', '…'));
-      list.append(row);
-    }
-    row.append(moveButton(main));
-    if (alternatives.length) {
-      if (ply.color === 'w') row.append(h('span', 'move placeholder', ''));
-      const block = h('li', 'variations');
-      for (const alt of alternatives) block.append(variationLine(alt));
-      list.append(block);
-      row = undefined; // the main line resumes on a new row, with its move number
-    }
-  }
-
-  if (game.root.children.length === 0) {
-    list.append(h('li', 'empty', 'Play a move on the board, or open a game from My games.'));
-  }
-  keepCurrentMoveVisible(list);
-}
-
-/** One variation as inline text: "5...Nf6 6. Nc3 (6. e5 Ne4) 6...Bb4". */
-function variationLine(first: MoveNode): HTMLElement {
-  const line = h('div', 'variation');
-  appendLine(line, first);
-  return line;
-}
-
-/**
- * Appends `first` and its continuation. Alternatives along the way go in parentheses right
- * after the move they replace, and the move after them gets its number again.
- */
-function appendLine(el: HTMLElement, first: MoveNode): void {
-  el.append(moveButton(first, numberedSan(first, true)));
-  let needNumber = false;
-  for (let parent = first; parent.children.length; ) {
-    const [next, ...alternatives] = parent.children;
-    el.append(moveButton(next, numberedSan(next, needNumber)));
-    needNumber = false;
-    for (const alt of alternatives) {
-      el.append(h('span', 'paren', '('));
-      appendLine(el, alt);
-      el.append(h('span', 'paren', ')'));
-      needNumber = true;
-    }
-    parent = next;
-  }
-}
-
-/** "6. Nc3", "6...Nf6" when a black move needs its number, otherwise just "Nf6". */
-function numberedSan(node: MoveNode, forceNumber: boolean): string {
-  const ply = node.ply!;
-  const n = ply.fenBefore.split(' ')[5];
-  return ply.color === 'w' ? `${n}. ${ply.san}` : forceNumber ? `${n}...${ply.san}` : ply.san;
+  renderMoveTree($('moves'), game, {
+    onSelect: node => goTo(node),
+    emptyText: 'Play a move on the board, or open a game from My games.',
+    decorate: (node, btn) => {
+      const cls = reviewOf(node)?.classification;
+      if (!cls || !['inaccuracy', 'mistake', 'blunder'].includes(cls)) return;
+      const glyph = h('span', `glyph ${cls}`, LABELS[cls].glyph);
+      glyph.title = LABELS[cls].name;
+      btn.append(glyph);
+      btn.setAttribute('aria-label', `${moveName(node.ply!)}, ${LABELS[cls].name}`);
+    },
+  });
 }
 
 /** "Make main line" / "Delete from here" for the move being viewed. */
@@ -647,22 +583,6 @@ function renderLineTools(): void {
   $('line-tools').hidden = !node.ply;
   $('promote-line').hidden = game.isMainLine(node);
   $('save-game').hidden = !!currentGameId || game.root.children.length === 0;
-}
-
-/**
- * Scrolls the move list (only the list, never the page) so the current move is visible.
- * scrollIntoView() would also scroll the page, which made the screen jump on phones.
- */
-function keepCurrentMoveVisible(list: HTMLElement): void {
-  const current = list.querySelector<HTMLElement>('.current');
-  if (!current) {
-    if (game.cursor === 0) list.scrollTop = 0;
-    return;
-  }
-  const top = current.offsetTop;
-  const bottom = top + current.offsetHeight;
-  if (top < list.scrollTop) list.scrollTop = top - 4;
-  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight + 4;
 }
 
 /** PGN date "2026.10.01" → "2026-10-01"; unknown parts ("1858.??.??") are dropped. */
