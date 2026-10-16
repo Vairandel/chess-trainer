@@ -8,13 +8,14 @@ import { $, h } from './dom';
 import { Game, type MoveNode, type PromotionPiece } from './game';
 import { renderMoveTree } from './moveList';
 import type { PositionEval } from './review';
+import { GAMES, type FamousGame } from './study/games';
 import { OPENINGS, type OpeningChapter } from './study/openings';
-import { loadProgress, markTrapStudied, saveProgress, setLastChapter } from './study/progress';
-import { allLines, judge, learnedCount, lineKey, nextLine, recordRun, type ChapterProgress } from './study/trainer';
+import { guessBest, loadProgress, markTrapStudied, recordGuess, saveProgress, setLastChapter } from './study/progress';
+import { allLines, guessPoints, judge, learnedCount, lineKey, nextLine, recordRun, type ChapterProgress } from './study/trainer';
 import { TRAPS, type Step, type Trap } from './study/traps';
 import { StudyLibrary } from './studyLibrary';
 
-type Chapter = { kind: 'trap'; trap: Trap } | { kind: 'opening'; opening: OpeningChapter };
+type Chapter = { kind: 'trap'; trap: Trap } | { kind: 'opening'; opening: OpeningChapter } | { kind: 'game'; game: FamousGame };
 
 /** The opponent's moves in Practice wait this long, so they can be followed. */
 const OPPONENT_DELAY_MS = 450;
@@ -26,7 +27,10 @@ export interface StudyOptions {
   evaluate?: (fen: string) => Promise<PositionEval>;
 }
 
-/** A run of Practice: one line of an opening chapter, played from memory. */
+/**
+ * A run of Practice: one line of an opening chapter played from memory, or a famous game in
+ * "Guess the move" (one try per move, points, and a pause to read each master move's comment).
+ */
 interface PracticeRun {
   line: MoveNode[];
   /** Index in `line` of the next move. */
@@ -36,6 +40,11 @@ interface PracticeRun {
   tries: number;
   done: boolean;
   thinking: boolean;
+  /** Guess the move: points so far and points available. */
+  points: number;
+  max: number;
+  /** Guess the move: the master move was just revealed; waiting for "Continue". */
+  paused: boolean;
 }
 
 /**
@@ -65,7 +74,7 @@ export class StudyView {
     $('study-show').addEventListener('click', () => this.showAnswer());
     $('study-mode-learn').addEventListener('click', () => this.setMode('learn'));
     $('study-mode-practice').addEventListener('click', () => this.setMode('practice'));
-    $('practice-next').addEventListener('click', () => this.startRun());
+    $('practice-next').addEventListener('click', () => this.practiceNext());
     $('practice-show').addEventListener('click', () => this.showRepertoireMove());
     document.addEventListener('keydown', e => {
       if (!this.options.isActive() || !this.chapter || this.mode === 'practice' || document.querySelector('dialog[open]')) return;
@@ -96,7 +105,7 @@ export class StudyView {
       this.token++; // stop a practice run in progress
       // the hidden board has no size: badges and arrows drawn on it would get NaN positions
       this.board?.setAutoShapes([]);
-      this.library.show(id === 'traps' ? 'traps' : 'openings');
+      this.library.show(id === 'traps' || id === 'games' ? id : 'openings');
       return;
     }
     if (!sameChapter(chapter, this.chapter)) this.open(chapter);
@@ -111,7 +120,7 @@ export class StudyView {
     } else {
       this.board.redrawAll();
     }
-    if (mode === 'practice' && chapter.kind === 'opening' && this.mode !== 'practice') {
+    if (mode === 'practice' && chapter.kind !== 'trap' && this.mode !== 'practice') {
       this.setMode('practice');
       return;
     }
@@ -135,19 +144,28 @@ export class StudyView {
     this.mistakeNode = undefined;
     this.insteadNode = undefined;
     if (chapter.kind === 'trap') this.buildTrap(chapter.trap);
+    else if (chapter.kind === 'game') this.buildLine(chapter.game.moves);
     else this.game = gameOf(chapter.opening.pgn);
     this.game.toStart();
-    setLastChapter(chapter.kind === 'trap' ? chapter.trap.id : chapter.opening.id);
+    setLastChapter(chapterId(chapter));
     // the back link returns to the tab the chapter belongs to
-    $<HTMLAnchorElement>('study-back').href = chapter.kind === 'trap' ? '#study/traps' : '#study/openings';
-    $('study-back').textContent = chapter.kind === 'trap' ? '← All traps' : '← All openings';
+    const tab = chapter.kind === 'trap' ? 'traps' : chapter.kind === 'game' ? 'games' : 'openings';
+    $<HTMLAnchorElement>('study-back').href = `#study/${tab}`;
+    $('study-back').textContent = `← All ${tab}`;
+    $('study-mode-practice').textContent = chapter.kind === 'game' ? '🎯 Guess the move' : '🎯 Practice';
 
-    const you = chapter.kind === 'trap' ? chapter.trap.you : chapter.opening.you;
-    $('study-title').textContent = chapter.kind === 'trap' ? chapter.trap.title : chapter.opening.title;
+    const you = this.you();
+    $('study-title').textContent = chapter.kind === 'trap' ? chapter.trap.title : chapter.kind === 'game' ? chapter.game.title : chapter.opening.title;
     $('study-meta').replaceChildren(
       ...(chapter.kind === 'trap'
         ? [h('span', '', chapter.trap.opening), sideChip(you), roleChip(chapter.trap.role)]
-        : [sideChip(you), h('span', 'chip chip-opening', 'Opening')]),
+        : chapter.kind === 'game'
+          ? [
+              h('span', '', `${chapter.game.white} – ${chapter.game.black}, ${chapter.game.event} ${chapter.game.year} · ${chapter.game.result}`),
+              h('span', 'chip chip-opening', chapter.game.opening),
+              h('span', `chip ${you === 'w' ? 'chip-white' : 'chip-black'}`, `Guess: ${you === 'w' ? 'White' : 'Black'}`),
+            ]
+          : [sideChip(you), h('span', 'chip chip-opening', 'Opening')]),
     );
 
     const isTrap = chapter.kind === 'trap';
@@ -158,7 +176,15 @@ export class StudyView {
     if (chapter.kind === 'trap') {
       $('study-dos').replaceChildren(...chapter.trap.dos.map(d => h('li', '', d)));
       $('study-donts').replaceChildren(...chapter.trap.donts.map(d => h('li', '', d)));
+    } else if (chapter.kind === 'game') {
+      $('study-plans-title').textContent = 'What to remember';
+      $('study-plans-list').replaceChildren(...chapter.game.lessons.map(p => h('li', '', p)));
+      $('study-plans-traps-title').textContent = 'Source';
+      $('study-plans-traps-title').hidden = false;
+      $('study-plans-traps').replaceChildren(h('li', 'muted', chapter.game.sourceNote));
     } else {
+      $('study-plans-title').textContent = 'Plans and ideas';
+      $('study-plans-traps-title').textContent = 'Related traps';
       const links = (chapter.opening.traps ?? [])
         .map(id => TRAPS.find(t => t.id === id))
         .filter((t): t is Trap => !!t)
@@ -174,20 +200,28 @@ export class StudyView {
     }
   }
 
+  /** Adds moves with their comments after the current node. */
+  private addSteps(steps: Step[]): void {
+    for (const [san, comment] of steps) {
+      const m = new Chess(this.game.fen()).move(san);
+      this.game.play(m.from as Square, m.to as Square, m.promotion as PromotionPiece | undefined);
+      this.game.node.ply!.comment = comment;
+    }
+  }
+
+  /** A single commented line (a famous game). */
+  private buildLine(steps: Step[]): void {
+    this.game = new Game();
+    this.addSteps(steps);
+  }
+
   /** The trap's main line with its comments, and the better line as a variation. */
   private buildTrap(trap: Trap): void {
     this.game = new Game();
-    const add = (steps: Step[]) => {
-      for (const [san, comment] of steps) {
-        const m = new Chess(this.game.fen()).move(san);
-        this.game.play(m.from as Square, m.to as Square, m.promotion as PromotionPiece | undefined);
-        this.game.node.ply!.comment = comment;
-      }
-    };
-    add(trap.moves);
+    this.addSteps(trap.moves);
     this.mistakeNode = this.game.mainLine()[trap.mistake];
     this.game.goTo(this.mistakeNode.parent!);
-    add(trap.instead);
+    this.addSteps(trap.instead);
     this.insteadNode = this.mistakeNode.parent!.children.find(c => c !== this.mistakeNode);
   }
 
@@ -212,7 +246,7 @@ export class StudyView {
 
   private you(): 'w' | 'b' {
     const c = this.chapter!;
-    return c.kind === 'trap' ? c.trap.you : c.opening.you;
+    return c.kind === 'trap' ? c.trap.you : c.kind === 'game' ? c.game.you : c.opening.you;
   }
 
   /** Is `node` on the better line of a trap (the variation)? */
@@ -278,7 +312,8 @@ export class StudyView {
   private renderComment(node: MoveNode): void {
     const box = $('study-comment');
     const ply = node.ply;
-    const summary = this.chapter!.kind === 'trap' ? this.chapter!.trap.summary : this.chapter!.opening.summary;
+    const c = this.chapter!;
+    const summary = c.kind === 'trap' ? c.trap.summary : c.kind === 'game' ? c.game.summary : c.opening.summary;
     if (!ply) {
       box.replaceChildren(
         h('p', 'study-summary', summary),
@@ -293,6 +328,7 @@ export class StudyView {
     else if (trap && node === this.insteadNode) head.append(h('span', 'badge best', '✓ The right move'));
     else if (trap && this.onBetterLine(node)) head.append(h('span', 'in-variation', 'better line'));
     else if (!trap && !this.game.isMainLine(node) && this.mode === 'learn') head.append(h('span', 'in-variation', 'side line'));
+    if (c.kind === 'game' && !node.children.length) head.append(h('span', 'chip', c.game.result));
     const parts: HTMLElement[] = [head, h('p', 'study-text', ply.comment ?? '')];
     if (trap && node === this.mistakeNode && this.insteadNode && this.mode === 'learn') {
       const go = h('button', 'play-line', 'Show the right move instead');
@@ -376,13 +412,19 @@ export class StudyView {
     return this.chapter?.kind === 'opening' ? loadProgress()[this.chapter.opening.id] ?? {} : {};
   }
 
-  /** Picks the next line to practise and plays it from the start. */
+  /** Picks the next line to practise (or the whole game, for Guess the move) and plays it from the start. */
   private startRun(): void {
-    if (this.chapter?.kind !== 'opening') return;
-    const lines = allLines(this.game.root);
-    const line = lines[nextLine(lines, this.chapterProgress(), Math.random, this.lastLineKey)];
-    this.lastLineKey = lineKey(line);
-    this.run = { line, next: 0, mistakes: 0, tries: 0, done: false, thinking: false };
+    if (!this.chapter || this.chapter.kind === 'trap') return;
+    let line: MoveNode[];
+    if (this.chapter.kind === 'game') {
+      line = this.game.mainLine();
+    } else {
+      const lines = allLines(this.game.root);
+      line = lines[nextLine(lines, this.chapterProgress(), Math.random, this.lastLineKey)];
+      this.lastLineKey = lineKey(line);
+    }
+    const max = 2 * line.filter(n => n.ply!.color === this.you()).length;
+    this.run = { line, next: 0, mistakes: 0, tries: 0, done: false, thinking: false, points: 0, max, paused: false };
     this.token++;
     this.game.toStart();
     this.message('practice-msg', '', 'info');
@@ -411,10 +453,11 @@ export class StudyView {
 
   private async onPracticeMove(orig: Key, dest: Key): Promise<void> {
     const run = this.run;
-    if (!run || run.done || run.thinking) return;
+    if (!run || run.done || run.thinking || run.paused) return;
     const expected = run.line[run.next];
     const san = sanOf(this.game.fen(), orig, dest);
     if (!san) return this.render();
+    if (this.chapter?.kind === 'game') return this.onGuess(run, expected, san);
     if (san === expected.ply!.san) {
       run.tries = 0;
       this.game.goTo(expected);
@@ -451,6 +494,59 @@ export class StudyView {
     this.render();
   }
 
+  /**
+   * Guess the move: one try. The master's move scores 2, an engine-equal move 1, anything else 0.
+   * Then the master's move is played, and the run pauses so its comment can be read.
+   */
+  private async onGuess(run: PracticeRun, expected: MoveNode, san: string): Promise<void> {
+    const game = (this.chapter as { game: FamousGame }).game;
+    const player = this.you() === 'w' ? game.white : game.black;
+    const master = expected.ply!.san;
+    let verdict = judge(san, master);
+    if (verdict !== 'repertoire' && this.options.evaluate) {
+      run.thinking = true;
+      this.message('practice-msg', `Checking ${san}…`, 'info');
+      this.render();
+      const token = this.token;
+      try {
+        const sign = this.you() === 'w' ? 1 : -1;
+        const tried = new Chess(this.game.fen());
+        tried.move(san);
+        const [a, b] = await Promise.all([this.options.evaluate(tried.fen()), this.options.evaluate(expected.ply!.fenAfter)]);
+        verdict = judge(san, master, sign * pawnsOf(a), sign * pawnsOf(b));
+      } catch {
+        // no engine: the move simply scores 0
+      }
+      if (token !== this.token) return;
+      run.thinking = false;
+    }
+    const points = guessPoints(verdict);
+    run.points += points;
+    this.game.goTo(expected);
+    run.next++;
+    run.paused = true;
+    const text =
+      points === 2
+        ? `✓ ${master} — exactly what ${player} played! (+2)`
+        : points === 1
+          ? `◐ ${san} is a good move too (+1). ${player} played ${master}.`
+          : `✗ ${player} played ${master}. (+0)`;
+    this.message('practice-msg', text, points === 2 ? 'ok' : points === 1 ? 'info' : 'bad');
+    this.render();
+  }
+
+  /** "Next line" in Practice; in Guess the move, "Continue" after a revealed move, or "Play again" at the end. */
+  private practiceNext(): void {
+    const run = this.run;
+    if (run && !run.done && run.paused) {
+      run.paused = false;
+      this.message('practice-msg', '', 'info');
+      this.advance();
+      return;
+    }
+    this.startRun();
+  }
+
   /** Plays the repertoire move for you (counted as a mistake), with its explanation. */
   private showRepertoireMove(): void {
     const run = this.run;
@@ -468,6 +564,14 @@ export class StudyView {
     const run = this.run!;
     run.done = true;
     run.thinking = false;
+    run.paused = false;
+    if (this.chapter?.kind === 'game') {
+      const best = recordGuess(this.chapter.game.id, run.points, run.max);
+      const pct = Math.round((100 * run.points) / run.max);
+      this.message('practice-msg', `Game over! Your score: ${run.points} / ${run.max} (${pct}%)${best ? ' — a new best!' : ''}`, 'ok');
+      this.render();
+      return;
+    }
     if (this.chapter?.kind === 'opening') {
       const all = loadProgress();
       all[this.chapter.opening.id] = recordRun(this.chapterProgress(), lineKey(run.line), run.mistakes);
@@ -482,18 +586,35 @@ export class StudyView {
   }
 
   private renderPractice(): void {
-    if (this.mode !== 'practice' || this.chapter?.kind !== 'opening') return;
+    if (this.mode !== 'practice' || !this.chapter || this.chapter.kind === 'trap') return;
     const run = this.run;
+    $('practice-moves').textContent = run ? movesText(run.line.slice(0, run.next)) || '—' : '';
+    const prompt = $('practice-prompt');
+    const next = $('practice-next');
+    if (this.chapter.kind === 'game') {
+      const game = this.chapter.game;
+      const player = this.you() === 'w' ? game.white : game.black;
+      const best = guessBest()[game.id];
+      $('practice-progress').textContent = run ? `Score ${run.points} / ${run.max}${best !== undefined ? ` · best ${best}%` : ''}` : '';
+      if (!run) prompt.textContent = '';
+      else if (run.done) prompt.textContent = 'Game over.';
+      else if (run.thinking) prompt.textContent = run.paused ? '' : 'Thinking…';
+      else if (run.paused) prompt.textContent = 'Read the comment, then continue.';
+      else prompt.textContent = `Your move: what did ${player} play?`;
+      next.textContent = run?.done ? 'Play again ▶' : 'Continue ▶';
+      next.hidden = !run || !(run.done || run.paused);
+      $('practice-show').hidden = true; // one try per move: the answer is always shown
+      return;
+    }
     const lines = allLines(this.game.root);
     const learned = learnedCount(lines, this.chapterProgress());
     $('practice-progress').textContent = `${learned} / ${lines.length} lines learned`;
-    $('practice-moves').textContent = run ? movesText(run.line.slice(0, run.next)) || '—' : '';
-    const prompt = $('practice-prompt');
     if (!run) prompt.textContent = '';
     else if (run.done) prompt.textContent = 'Line finished.';
     else if (run.thinking) prompt.textContent = 'Your opponent is playing…';
     else prompt.textContent = 'Your move: play your repertoire move.';
-    $('practice-next').hidden = !run?.done;
+    next.textContent = 'Next line ▶';
+    next.hidden = !run?.done;
     $('practice-show').hidden = !run || run.done || run.thinking || run.tries < 2;
   }
 
@@ -510,13 +631,18 @@ function findChapter(id: string | undefined): Chapter | undefined {
   if (!id) return undefined;
   const trap = TRAPS.find(t => t.id === id);
   if (trap) return { kind: 'trap', trap };
+  const game = GAMES.find(g => g.id === id);
+  if (game) return { kind: 'game', game };
   const opening = OPENINGS.find(o => o.id === id);
   return opening ? { kind: 'opening', opening } : undefined;
 }
 
+function chapterId(c: Chapter): string {
+  return c.kind === 'trap' ? c.trap.id : c.kind === 'game' ? c.game.id : c.opening.id;
+}
+
 function sameChapter(a: Chapter, b: Chapter | undefined): boolean {
-  if (!b || a.kind !== b.kind) return false;
-  return a.kind === 'trap' ? a.trap === (b as { trap: Trap }).trap : a.opening === (b as { opening: OpeningChapter }).opening;
+  return !!b && a.kind === b.kind && chapterId(a) === chapterId(b);
 }
 
 function gameOf(pgn: string): Game {

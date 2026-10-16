@@ -72,3 +72,8 @@ export function judge(tried: string, expected: string, evalTried?: number, evalE
   if (evalTried === undefined || evalExpected === undefined) return 'unknown';
   return evalTried >= evalExpected - tolerance ? 'playable' : 'mistake';
 }
+
+/** "Guess the move" points: 2 for the master's move, 1 for a move the engine rates as good, 0 otherwise. */
+export function guessPoints(verdict: ReturnType<typeof judge>): 0 | 1 | 2 {
+  return verdict === 'repertoire' ? 2 : verdict === 'playable' ? 1 : 0;
+}

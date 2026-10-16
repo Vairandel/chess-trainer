@@ -7,6 +7,7 @@ import { allLines, learnedCount, lineKey, type ChapterProgress } from './trainer
 const PROGRESS_KEY = 'chess-trainer:openings';
 const STUDIED_KEY = 'chess-trainer:traps-studied';
 const LAST_KEY = 'chess-trainer:last-chapter';
+const GUESS_KEY = 'chess-trainer:guess-best';
 
 export type Status = 'new' | 'started' | 'done';
 
@@ -42,6 +43,20 @@ export function studiedTraps(): string[] {
 export function markTrapStudied(id: string): void {
   const all = studiedTraps();
   if (!all.includes(id)) write(STUDIED_KEY, [...all, id]);
+}
+
+/** Best "Guess the move" result per famous game, as a percentage of the points available. */
+export function guessBest(): Record<string, number> {
+  return read<Record<string, number>>(GUESS_KEY, {});
+}
+
+/** Records a finished guess run; returns true if it is a new best. */
+export function recordGuess(id: string, points: number, max: number): boolean {
+  const all = guessBest();
+  const pct = max ? Math.round((100 * points) / max) : 0;
+  if (all[id] !== undefined && all[id] >= pct) return false;
+  write(GUESS_KEY, { ...all, [id]: pct });
+  return true;
 }
 
 export function lastChapter(): string | undefined {

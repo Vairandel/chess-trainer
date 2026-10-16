@@ -23,7 +23,7 @@ npm run build    # production files in dist/
 - `src/library.ts`: "My games", saved with their analysis in the browser's localStorage.
 - `src/opponent.ts` and `src/play.ts`: the computer opponent and the Play page.
 - `src/dom.ts`: small page helpers shared by the pages.
-- `src/studyView.ts` and `src/study/`: the Study page — trap chapters (`traps.ts`), opening chapters (`openings.ts`), the opening trainer logic (`trainer.ts`) and saved progress (`progress.ts`). Their tests check every line with Stockfish.
+- `src/studyView.ts` and `src/study/`: the Study page — trap chapters (`traps.ts`), opening chapters (`openings.ts`), famous games (`games.ts`, with the downloaded scores in `games-source.json`), the opening trainer and "Guess the move" logic (`trainer.ts`) and saved progress (`progress.ts`). Their tests check every line with Stockfish.
 - `src/studyLibrary.ts`: the Study library (tabs, Continue box, overview, search and filters).
 - `src/puzzleView.ts` and `src/puzzles/`: the Puzzles page — the puzzle set (`data.json`, from the [Lichess puzzle database](https://database.lichess.org/#puzzles), CC0), theme explanations and the trainer logic (rating, missed puzzles). `scripts/select-puzzles.mjs` rebuilds the set.
 - `src/settings.ts`: appearance settings (theme, board colors, pieces, accent, coordinates).

@@ -1,9 +1,17 @@
 import { h } from './dom';
 import { OPENINGS, type OpeningChapter } from './study/openings';
-import { chapterLines, lastChapter, loadProgress, openingStats, studiedTraps, type Status } from './study/progress';
+import { GAMES, type FamousGame } from './study/games';
+import { chapterLines, guessBest, lastChapter, loadProgress, openingStats, studiedTraps, type Status } from './study/progress';
 import { TRAPS, type Trap } from './study/traps';
 
-export type LibraryTab = 'openings' | 'traps';
+export type LibraryTab = 'openings' | 'traps' | 'games';
+
+const GAME_CATEGORIES: { id: FamousGame['category']; title: string }[] = [
+  { id: 'classic', title: 'The great classics' },
+  { id: 'your-openings', title: 'In your openings' },
+  { id: 'positional', title: 'Positional masterpieces' },
+  { id: 'modern', title: 'Modern games' },
+];
 
 const SECTIONS: { id: OpeningChapter['section']; title: string; short: string }[] = [
   { id: 'white', title: 'White — Nf3, d4, g3, Bg2, c4', short: 'White' },
@@ -14,7 +22,7 @@ const SECTIONS: { id: OpeningChapter['section']; title: string; short: string }[
 const STATUS_LABEL: Record<'all' | Status, string> = { all: 'All', new: 'Not started', started: 'In progress', done: 'Done' };
 
 /**
- * The Study library: tabs (Openings / Traps), a "Continue" box, a progress overview, and a
+ * The Study library: tabs (Openings / Traps / Famous games), a "Continue" box, a progress overview, and a
  * searchable, filterable list. The frame is built once; typing in the search field only
  * redraws the results, so the field keeps its focus.
  */
@@ -40,6 +48,8 @@ export class StudyLibrary {
       if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });
+    this.root.querySelector<HTMLInputElement>('.lib-search')!.placeholder =
+      tab === 'games' ? 'Search: Morphy, Fischer, Catalan…' : 'Search: Catalan, f7, London…';
     this.renderStatusFilter();
     this.renderContinue();
     this.renderOverview();
@@ -61,13 +71,12 @@ export class StudyLibrary {
       'lib-tabs',
       tab('openings', 'Openings'),
       tab('traps', 'Traps'),
-      h('span', 'soon', 'Famous games ', h('small', '', 'soon')),
+      tab('games', 'Famous games'),
     );
     tabs.setAttribute('aria-label', 'Study sections');
 
     const search = h('input', 'lib-search') as HTMLInputElement;
     search.type = 'search';
-    search.placeholder = 'Search: Catalan, f7, London…';
     search.setAttribute('aria-label', 'Search chapters');
     search.addEventListener('input', () => {
       this.query = search.value.trim().toLowerCase();
@@ -101,8 +110,15 @@ export class StudyLibrary {
   }
 
   private renderStatusFilter(): void {
-    const options = (this.tab === 'traps' ? ['all', 'new', 'done'] : ['all', 'new', 'started', 'done']) as ('all' | Status)[];
-    const labels: [string, string][] = options.map(o => [o, this.tab === 'traps' && o === 'done' ? 'Studied' : STATUS_LABEL[o]]);
+    // traps are studied or not; games are played or not; only openings have "in progress"
+    const options = (this.tab === 'openings' ? ['all', 'new', 'started', 'done'] : ['all', 'new', 'done']) as ('all' | Status)[];
+    const label = (o: 'all' | Status) => {
+      if (this.tab === 'traps' && o === 'done') return 'Studied';
+      if (this.tab === 'games' && o === 'new') return 'Not played';
+      if (this.tab === 'games' && o === 'done') return 'Played';
+      return STATUS_LABEL[o];
+    };
+    const labels: [string, string][] = options.map(o => [o, label(o)]);
     const fresh = this.radioGroup('lib-status', labels, this.status, v => {
       this.status = v as typeof this.status;
       this.renderResults();
@@ -115,7 +131,7 @@ export class StudyLibrary {
   private renderContinue(): void {
     const parts: HTMLElement[] = [];
     const last = lastChapter();
-    const lastTitle = OPENINGS.find(o => o.id === last)?.title ?? TRAPS.find(t => t.id === last)?.title;
+    const lastTitle = OPENINGS.find(o => o.id === last)?.title ?? TRAPS.find(t => t.id === last)?.title ?? GAMES.find(g => g.id === last)?.title;
     if (last && lastTitle) parts.push(h('p', 'lib-continue-last', 'Continue: ', link(`#study/${last}`, lastTitle)));
 
     const progress = loadProgress();
@@ -154,6 +170,14 @@ export class StudyLibrary {
           return statBox(s.short, learned, total, 'lines learned');
         }),
       );
+    } else if (this.tab === 'games') {
+      const best = guessBest();
+      this.overview.replaceChildren(
+        ...GAME_CATEGORIES.map(c => {
+          const list = GAMES.filter(g => g.category === c.id);
+          return statBox(c.title, list.filter(g => best[g.id] !== undefined).length, list.length, 'played');
+        }),
+      );
     } else {
       const studied = new Set(studiedTraps());
       const count = (group: Trap['group']) => {
@@ -179,7 +203,7 @@ export class StudyLibrary {
   }
 
   private renderResults(): void {
-    const groups = this.tab === 'openings' ? this.openingGroups() : this.trapGroups();
+    const groups = this.tab === 'openings' ? this.openingGroups() : this.tab === 'games' ? this.gameGroups() : this.trapGroups();
     const visible = groups.filter(g => g.rows.length);
     if (visible.length === 0) {
       const clear = h('button', '', 'Clear filters');
@@ -190,6 +214,28 @@ export class StudyLibrary {
     this.results.replaceChildren(
       ...visible.map(g => h('section', 'lib-group', h('h2', '', g.title), h('ul', 'lib-rows', ...g.rows))),
     );
+  }
+
+  private gameGroups(): { title: string; rows: HTMLElement[] }[] {
+    const best = guessBest();
+    return GAME_CATEGORIES.map(c => ({
+      title: c.title,
+      rows: GAMES.filter(g => g.category === c.id)
+        .filter(g => this.matches(`${g.title} ${g.white} ${g.black} ${g.opening} ${g.summary}`, g.you, best[g.id] !== undefined ? 'done' : 'new'))
+        .map(g =>
+          row(
+            `#study/${g.id}`,
+            g.title,
+            `${g.white} – ${g.black}, ${g.event} ${g.year} · ${g.opening}`,
+            h(
+              'span',
+              'lib-progress',
+              bar(best[g.id] ?? 0, 100),
+              h('span', 'lib-progress-text', best[g.id] !== undefined ? `best ${best[g.id]}%` : 'not played'),
+            ),
+          ),
+        ),
+    }));
   }
 
   private openingGroups(): { title: string; rows: HTMLElement[] }[] {

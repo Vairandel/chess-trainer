@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Game } from '../game';
 import { OPENINGS } from './openings';
-import { allLines, judge, learnedCount, lineKey, nextLine, recordRun, type ChapterProgress } from './trainer';
+import { allLines, guessPoints, judge, learnedCount, lineKey, nextLine, recordRun, type ChapterProgress } from './trainer';
 
 function tree(pgn: string) {
   const g = new Game();
@@ -55,6 +55,15 @@ describe('choosing the next line', () => {
     expect(learnedCount(lines, progress)).toBe(2);
     progress = recordRun(progress, keys[1], 1);
     expect(learnedCount(lines, progress)).toBe(1);
+  });
+});
+
+describe('guess the move points', () => {
+  it('gives 2 for the master move, 1 for an engine-equal move, 0 otherwise', () => {
+    expect(guessPoints(judge('Nf3', 'Nf3'))).toBe(2);
+    expect(guessPoints(judge('d4', 'Nf3', 0.25, 0.3))).toBe(1);
+    expect(guessPoints(judge('h4', 'Nf3', -0.6, 0.3))).toBe(0);
+    expect(guessPoints(judge('d4', 'Nf3'))).toBe(0);
   });
 });
 
