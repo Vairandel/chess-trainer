@@ -189,7 +189,8 @@ let studyView: StudyView | undefined;
 
 function route(): void {
   // "#study/fried-liver" → view "study", argument "fried-liver"
-  const [hash, arg] = location.hash.slice(1).split('/') as [View, string | undefined];
+  // "#study/catalan/practice" → view "study", then "catalan" and "practice"
+  const [hash, arg, mode] = location.hash.slice(1).split('/') as [View, string | undefined, string | undefined];
   currentView = VIEWS.includes(hash) ? hash : 'games';
   for (const v of VIEWS) $(`view-${v}`).hidden = currentView !== v;
   document.querySelectorAll<HTMLAnchorElement>('a[data-view]').forEach(a => {
@@ -208,7 +209,7 @@ function route(): void {
       isActive: () => currentView === 'study',
       evaluate: fen => analyzer.evaluate(fen, 14),
     });
-    studyView.show(arg);
+    studyView.show(arg, mode);
   } else if (currentView === 'play') {
     playView ??= new PlayView({
       loadEngine: () => loadStockfish(ENGINE_BASE).then(r => r.engine),

@@ -23,7 +23,8 @@ npm run build    # production files in dist/
 - `src/library.ts`: "My games", saved with their analysis in the browser's localStorage.
 - `src/opponent.ts` and `src/play.ts`: the computer opponent and the Play page.
 - `src/dom.ts`: small page helpers shared by the pages.
-- `src/studyView.ts` and `src/study/`: the Study page — trap chapters (`traps.ts`), opening chapters (`openings.ts`) and the opening trainer logic (`trainer.ts`). Their tests check every line with Stockfish.
+- `src/studyView.ts` and `src/study/`: the Study page — trap chapters (`traps.ts`), opening chapters (`openings.ts`), the opening trainer logic (`trainer.ts`) and saved progress (`progress.ts`). Their tests check every line with Stockfish.
+- `src/studyLibrary.ts`: the Study library (tabs, Continue box, overview, search and filters).
 - `src/settings.ts`: appearance settings (theme, board colors, pieces, accent, coordinates).
 - `public/pieces/`: extra piece sets from Lichess, with their authors and licenses in `CREDITS.md`.
 - `public/engine/`: Stockfish 19 builds from [stockfish.js](https://github.com/nmrugg/stockfish.js) (lite WASM + asm.js fallback).

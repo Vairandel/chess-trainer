@@ -9,12 +9,13 @@ import { Game, type MoveNode, type PromotionPiece } from './game';
 import { renderMoveTree } from './moveList';
 import type { PositionEval } from './review';
 import { OPENINGS, type OpeningChapter } from './study/openings';
+import { loadProgress, markTrapStudied, saveProgress, setLastChapter } from './study/progress';
 import { allLines, judge, learnedCount, lineKey, nextLine, recordRun, type ChapterProgress } from './study/trainer';
 import { TRAPS, type Step, type Trap } from './study/traps';
+import { StudyLibrary } from './studyLibrary';
 
 type Chapter = { kind: 'trap'; trap: Trap } | { kind: 'opening'; opening: OpeningChapter };
 
-const PROGRESS_KEY = 'chess-trainer:openings';
 /** The opponent's moves in Practice wait this long, so they can be followed. */
 const OPPONENT_DELAY_MS = 450;
 
@@ -53,6 +54,7 @@ export class StudyView {
   private run?: PracticeRun;
   private lastLineKey?: string;
   private token = 0;
+  private library = new StudyLibrary($('study-list'));
 
   constructor(private options: StudyOptions) {
     $('study-start').addEventListener('click', () => this.step(() => this.game.toStart()));
@@ -81,14 +83,20 @@ export class StudyView {
     });
   }
 
-  /** Shows the list (no id) or a chapter. */
-  show(id?: string): void {
+  /**
+   * Shows the library ("openings" or "traps" tab, openings by default) or a chapter.
+   * `mode` "practice" opens an opening chapter straight in Practice.
+   */
+  show(id?: string, mode?: string): void {
     const chapter = findChapter(id);
     $('study-list').hidden = !!chapter;
     $('study-chapter').hidden = !chapter;
     if (!chapter) {
       this.chapter = undefined;
-      this.renderList();
+      this.token++; // stop a practice run in progress
+      // the hidden board has no size: badges and arrows drawn on it would get NaN positions
+      this.board?.setAutoShapes([]);
+      this.library.show(id === 'traps' ? 'traps' : 'openings');
       return;
     }
     if (!sameChapter(chapter, this.chapter)) this.open(chapter);
@@ -103,6 +111,10 @@ export class StudyView {
     } else {
       this.board.redrawAll();
     }
+    if (mode === 'practice' && chapter.kind === 'opening' && this.mode !== 'practice') {
+      this.setMode('practice');
+      return;
+    }
     this.render();
   }
 
@@ -110,43 +122,6 @@ export class StudyView {
     this.options.coordinates = on;
     this.board?.set({ coordinates: on });
     this.board?.redrawAll();
-  }
-
-  // ---------- the list ----------
-
-  private renderList(): void {
-    const traps = (pred: (t: Trap) => boolean) => TRAPS.filter(pred).map(t => trapCard(t));
-    const openings = (section: OpeningChapter['section']) => OPENINGS.filter(o => o.section === section).map(o => this.openingCard(o));
-    const groups: [string, string, HTMLElement[]][] = [
-      ['Your White repertoire', 'Nf3, d4, g3, Bg2, O-O, c4: what to play against each reply, and why.', [...openings('white'), ...traps(t => t.group === 'your-openings' && t.you === 'w')]],
-      ['Your Black repertoire', 'The Alekhine Defense against 1.e4, and the Queen’s Gambit Declined against 1.d4.', [...openings('black-e4'), ...openings('black-d4'), ...traps(t => t.group === 'your-openings' && t.you === 'b')]],
-      ['Classic traps', 'The traps you will meet again and again in online games.', traps(t => t.group === 'classic')],
-    ];
-    $('study-list').replaceChildren(
-      ...groups
-        .filter(([, , cards]) => cards.length)
-        .map(([title, intro, cards]) => h('section', 'study-group', h('h2', '', title), h('p', 'muted', intro), h('div', 'study-cards', ...cards))),
-    );
-  }
-
-  private openingCard(o: OpeningChapter): HTMLElement {
-    const lines = allLines(loadTree(o.pgn));
-    const learned = learnedCount(lines, loadProgress()[o.id] ?? {});
-    const card = h(
-      'a',
-      'study-card',
-      h('span', 'study-card-title', o.title),
-      h(
-        'span',
-        'study-card-tags',
-        sideChip(o.you),
-        h('span', 'chip chip-opening', 'Opening'),
-        h('span', 'chip', `${learned} / ${lines.length} lines learned`),
-      ),
-      h('span', 'study-card-summary', o.summary),
-    ) as HTMLAnchorElement;
-    card.href = `#study/${o.id}`;
-    return card;
   }
 
   // ---------- opening a chapter ----------
@@ -162,6 +137,10 @@ export class StudyView {
     if (chapter.kind === 'trap') this.buildTrap(chapter.trap);
     else this.game = gameOf(chapter.opening.pgn);
     this.game.toStart();
+    setLastChapter(chapter.kind === 'trap' ? chapter.trap.id : chapter.opening.id);
+    // the back link returns to the tab the chapter belongs to
+    $<HTMLAnchorElement>('study-back').href = chapter.kind === 'trap' ? '#study/traps' : '#study/openings';
+    $('study-back').textContent = chapter.kind === 'trap' ? '← All traps' : '← All openings';
 
     const you = chapter.kind === 'trap' ? chapter.trap.you : chapter.opening.you;
     $('study-title').textContent = chapter.kind === 'trap' ? chapter.trap.title : chapter.opening.title;
@@ -349,6 +328,7 @@ export class StudyView {
     test.tries++;
     if (test.answers.includes(san)) {
       test.solved = true;
+      markTrapStudied(this.chapter.trap.id); // found by yourself, not with "Show the answer"
       const target = test.node.children.find(c => c.ply!.san === san);
       if (target) this.game.goTo(target);
       else this.game.play(orig as Square, dest as Square);
@@ -545,17 +525,6 @@ function gameOf(pgn: string): Game {
   return g;
 }
 
-/** The root of a chapter's tree, cached: the list shows progress for every chapter. */
-const trees = new Map<string, MoveNode>();
-function loadTree(pgn: string): MoveNode {
-  let root = trees.get(pgn);
-  if (!root) {
-    root = gameOf(pgn).root;
-    trees.set(pgn, root);
-  }
-  return root;
-}
-
 function sanOf(fen: string, orig: Key, dest: Key): string | undefined {
   try {
     // promotions do not occur in these lines; take the queen if one comes up
@@ -589,31 +558,3 @@ function roleChip(role: Trap['role']): HTMLElement {
   return h('span', `chip ${role === 'set' ? 'chip-set' : 'chip-avoid'}`, role === 'set' ? 'Trap to set' : 'Trap to avoid');
 }
 
-function trapCard(t: Trap): HTMLElement {
-  const card = h(
-    'a',
-    'study-card',
-    h('span', 'study-card-title', t.title),
-    h('span', 'study-card-opening', t.opening),
-    h('span', 'study-card-tags', sideChip(t.you), roleChip(t.role)),
-    h('span', 'study-card-summary', t.summary),
-  ) as HTMLAnchorElement;
-  card.href = `#study/${t.id}`;
-  return card;
-}
-
-function loadProgress(): Record<string, ChapterProgress> {
-  try {
-    return JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? '{}') as Record<string, ChapterProgress>;
-  } catch {
-    return {};
-  }
-}
-
-function saveProgress(all: Record<string, ChapterProgress>): void {
-  try {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(all));
-  } catch {
-    // not saved: progress lasts until the page is closed
-  }
-}

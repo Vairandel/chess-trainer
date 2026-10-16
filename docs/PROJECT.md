@@ -70,6 +70,7 @@ flowchart TD
     - White repertoire (done): Catalan vs ...d5/...e6; vs ...d5 and ...c5 (play c4 — Tarrasch with g3; 3.c3 is passive and e4 must be prepared); vs 1...c5 (the c3 plan, but d4 at once vs ...d5); vs the King's Indian setup.
     - Black vs 1.e4, Alekhine (done): Modern 4.Nf3 with ...g6 (vs 5.Bc4/c4/Be2/Ng5, and 7.Ng5 met by ...d5); 4.c4 Exchange and Four Pawns (...f6 break); sidelines 2.Nc3, Chase, 3.Nc3, 3.Bc4, 2.d3.
     - Black vs 1.d4, QGD setup (done): 2.c4 with Bg5 (Lasker ...h6/...Ne4), Exchange and Bf4 (...c5); the London (...c5, ...Bd6); the Catalan (...dxc4, ...a6, ...b5, ...Bb7, never ...c6).
+    - Study library reorganized: Openings / Traps / Famous games (soon) tabs; a Continue box (last chapter, lines to review linking straight into Practice); progress overview per repertoire and traps studied; search, side and status filters. A trap counts as studied when its test is solved without "Show the answer".
     - Next: legendary games; more chapters on request (Randi's own trap list, lost games).
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
