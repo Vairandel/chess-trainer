@@ -275,4 +275,313 @@ export const OPENINGS: OpeningChapter[] = [
       'Against a symmetrical Grünfeld-style setup, Ne5 uses your extra tempo.',
     ],
   },
+
+  // ------------------------------------------------------------------ Black vs 1.e4: Alekhine
+  {
+    id: 'alekhine-modern',
+    section: 'black-e4',
+    title: 'Alekhine: the Modern Variation (4.Nf3)',
+    you: 'b',
+    summary: "White's most popular line. Your system: ...d6, ...g6 and ...Bg7, then attack the center with ...dxe5, ...Nc6 and ...Bg4.",
+    pgn: `
+1. e4 {White takes the center.}
+1... Nf6 {The Alekhine Defense: you attack e4 and invite White's pawns forward. A big pawn center can become a target.}
+2. e5 {White accepts and kicks the knight.}
+2... Nd5 {The knight's best square: central and safe.}
+3. d4 {White builds the center.}
+3... d6 {Attack the e5 pawn at once: that is the whole idea of the Alekhine.}
+4. Nf3 {The Modern Variation: White defends e5 with a piece and develops calmly.}
+4... g6 {Your system: the bishop goes to g7, where it hits White's center from afar.}
+5. Bc4 {The most active move: the bishop hits your knight and aims at f7.}
+(5. c4 {White kicks the knight.}
+ 5... Nb6 {The knight retreats to b6, where it eyes c4.}
+ 6. exd6 {White exchanges.} 6... cxd6 {Recapture toward the center: the d6 pawn controls e5 and c5.}
+ 7. Be2 {White develops.} 7... Bg7 {Your bishop on the long diagonal presses d4.}
+ 8. O-O {White castles.} 8... O-O {You castle.}
+ 9. Nc3 {White develops.} 9... Bg4 {Pin the knight that defends d4.}
+ 10. h3 {White asks the bishop.} 10... Bxf3 {Take the knight: one defender of d4 fewer.}
+ 11. Bxf3 {White recaptures.} 11... Nc6 {Now d4 is under heavy pressure: a typical, comfortable position for you.})
+(5. Be2 {A calm developing move.}
+ 5... Bg7 {Develop.} 6. O-O {White castles.} 6... O-O {You castle.}
+ 7. c4 {White kicks the knight.} 7... Nb6 {The knight retreats.}
+ 8. exd6 {White exchanges.} 8... cxd6 {Recapture toward the center.}
+ 9. Nc3 {White develops.} 9... Bg4 {Same plan: pin the defender of d4.}
+ 10. h3 {White asks the bishop.} 10... Bxf3 {Take the defender.} 11. Bxf3 {Recapture.}
+ 11... Nc6 {Pressure on d4: the same comfortable position.})
+(5. Ng5 {An early knight jump toward f7.}
+ 5... c6 {Solid: supports the d5 knight and prepares ...dxe5.}
+ 6. Bc4 {The bishop also aims at f7.} 6... dxe5 {Take on e5.}
+ 7. dxe5 {White recaptures.} 7... Bg7 {Your bishop hits the e5 pawn: you are fine.})
+5... Nb6 {The knight retreats with tempo on the bishop.}
+6. Bb3 {The bishop stays on the diagonal toward f7.}
+6... Bg7 {Develop: the bishop aims at e5 and d4.}
+7. Ng5 {The aggressive try: knight and bishop both aim at f7.}
+(7. a4 {White threatens a5 to chase your knight.}
+ 7... a5 {Stop it: now the b6 knight is safe.}
+ 8. O-O {White castles.} 8... O-O {You castle.}
+ 9. h3 {White prevents ...Bg4.} 9... dxe5 {Release the tension now.}
+ 10. Nxe5 {White recaptures with the knight.} 10... Nc6 {Challenge the strong e5 knight.}
+ 11. Nxc6 {White trades.} 11... bxc6 {Your pawns are doubled, but the open b-file and your bishops give good play.}
+ 12. c3 {White supports d4.})
+(7. O-O {White castles first.}
+ 7... O-O {You castle.} 8. h3 {White prevents ...Bg4.}
+ 8... a5 {Gain queenside space and threaten ...a4, hitting the b3 bishop.}
+ 9. a4 {White stops ...a4.} 9... dxe5 {Release the tension.}
+ 10. Nxe5 {White recaptures.} 10... Nc6 {Challenge the e5 knight.}
+ 11. Nxc6 {White trades.} 11... bxc6 {Open b-file and active bishops: good play for you.}
+ 12. c3 {White supports d4.})
+7... d5 {Block the bishop's diagonal: f7 is safe now.}
+8. O-O {White castles.}
+8... h6 {Kick the knight.}
+9. Nf3 {The knight retreats.}
+9... Bg4 {Develop with a pin on the f3 knight.}
+10. Nbd2 {White develops.}
+10... e6 {A solid, French-like structure: d5 is secure and your pieces are well placed.}
+`,
+    plans: [
+      'Attack the big center: ...d6, then ...dxe5, ...Nc6 and ...Bg4 to pressure d4.',
+      'The g7 bishop is your best piece: it hits e5 and d4 from far away.',
+      'Pin the f3 knight with ...Bg4 and take it with ...Bxf3 when it defends d4.',
+      'When White aims at f7 (Bc4/Bb3 + Ng5), close the diagonal with ...d5 or ...e6.',
+    ],
+    traps: ['alekhine-ne4', 'alekhine-nxf7'],
+  },
+  {
+    id: 'alekhine-c4',
+    section: 'black-e4',
+    title: 'Alekhine: Exchange and Four Pawns (4.c4)',
+    you: 'b',
+    summary: 'White grabs space with c4 (and sometimes f4). Recapture toward the center, fianchetto, and strike the center with ...e5 or ...f6.',
+    pgn: `
+1. e4 {White takes the center.}
+1... Nf6 {The Alekhine Defense.}
+2. e5 {White kicks the knight.}
+2... Nd5 {The knight's best square.}
+3. d4 {White builds the center.}
+3... d6 {Attack e5 at once.}
+4. c4 {White kicks the knight again: the big-center lines.}
+4... Nb6 {The knight retreats to b6.}
+5. exd6 {The Exchange Variation: White trades on d6.}
+(5. f4 {The Four Pawns Attack: a huge center. It looks scary, but it is overextended.}
+ 5... dxe5 {Take on e5 first.} 6. fxe5 {White recaptures.}
+ 6... Nc6 {Attack d4 right away.} 7. Be3 {White defends d4.}
+ 7... Bf5 {Develop with an eye on b1 and c2.} 8. Nc3 {White develops.}
+ 8... e6 {Solid: opens the f8 bishop.} 9. Nf3 {White defends d4.}
+ 9... Be7 {Develop, ready to castle.} 10. Be2 {White develops.}
+ 10... O-O {You castle.} 11. O-O {White castles.}
+ 11... f6 {The key break: hit e5 and open the f-file. White's center starts to crumble.})
+5... cxd6 {Recapture toward the center with the c-pawn.}
+6. Nc3 {White develops.}
+(6. Nf3 {White develops the other knight.}
+ 6... g6 {Fianchetto.} 7. Be2 {White develops.} 7... Bg7 {Your bishop presses d4.}
+ 8. O-O {White castles.} 8... O-O {You castle.} 9. Nc3 {White develops.}
+ 9... Nc6 {Pressure on d4.} 10. Be3 {White protects d4.}
+ 10... Bg4 {Pin the knight that defends d4.})
+(6. Bd3 {The bishop aims at your kingside.}
+ 6... g6 {Fianchetto: your king will be well protected.} 7. Ne2 {White develops.}
+ 7... Bg7 {The bishop hits d4.} 8. O-O {White castles.} 8... O-O {You castle.}
+ 9. Nbc3 {White develops.} 9... Nc6 {Pressure on d4.})
+6... g6 {Fianchetto: the bishop will hit d4.}
+7. Be3 {White protects d4.}
+7... Bg7 {Develop.}
+8. Rc1 {Supports the c4 pawn.}
+8... O-O {You castle.}
+9. b3 {Protects c4 with a pawn.}
+9... e5 {The central break: challenge d4.}
+10. dxe5 {White takes.}
+10... dxe5 {The d-file opens and your pieces become active. Balanced.}
+`,
+    plans: [
+      'Recapture on d6 with the c-pawn, toward the center.',
+      'Fianchetto (...g6, ...Bg7), then pressure d4 with ...Nc6, ...Bg4 and the ...e5 break.',
+      'Against the Four Pawns Attack, take on e5, hit d4 with ...Nc6, develop with ...Bf5 and ...e6, then break with ...f6.',
+      'Your b6 knight eyes c4: White’s advanced c-pawn can become weak.',
+    ],
+    traps: ['alekhine-ne4'],
+  },
+  {
+    id: 'alekhine-sidelines',
+    section: 'black-e4',
+    title: "Alekhine: White's sidelines",
+    you: 'b',
+    summary: "Against 2.Nc3, 3.c4 Nb6 4.c5, 3.Nc3 or 3.Bc4, keep it simple: strike the center, trade the active knights, and develop.",
+    pgn: `
+1. e4 {White takes the center.}
+1... Nf6 {The Alekhine Defense.}
+2. Nc3 {White protects e4 instead of pushing.}
+(2. e5 {White kicks the knight.}
+ 2... Nd5 {The best square.}
+ 3. c4 {White chases the knight.}
+ (3. Nc3 {White offers to trade knights.}
+  3... Nxc3 {Trade: White's pawns get doubled.} 4. dxc3 {White recaptures.}
+  4... d6 {Attack e5.} 5. Nf3 {White defends e5.} 5... Nc6 {Attack e5 again.}
+  6. Bb5 {White pins the knight.} 6... a6 {Ask the bishop.} 7. Ba4 {The bishop keeps the pin.}
+  7... dxe5 {Win the fight for e5: you are comfortable.})
+ (3. Bc4 {White hits the knight.}
+  3... Nb6 {The knight retreats with tempo.} 4. Bb3 {The bishop retreats.}
+  4... d6 {Attack e5.} 5. exd6 {White exchanges.} 5... cxd6 {Recapture toward the center.}
+  6. Nc3 {White develops.} 6... Nc6 {Develop: easy play for you.})
+ 3... Nb6 {The knight retreats.}
+ 4. c5 {The Chase Variation: White keeps chasing.}
+ 4... Nd5 {The knight returns to the center.}
+ 5. Bc4 {White hits the knight.} 5... e6 {Support the knight.}
+ 6. Nc3 {Attack it again.} 6... Nxc3 {Trade it.}
+ 7. dxc3 {White recaptures.} 7... Nc6 {Develop: the c5 and e5 pawns are overextended targets.})
+(2. d3 {A quiet move.}
+ 2... e5 {Take the center yourself.} 3. Nf3 {White develops.}
+ 3... Nc6 {Develop.} 4. Be2 {White develops.} 4... d5 {A big center for you.})
+2... d5 {Strike the center at once.}
+3. exd5 {White takes.}
+(3. e5 {White pushes.}
+ 3... Nfd7 {The knight retreats.} 4. d4 {White builds the center.}
+ 4... e6 {A French-like structure.} 5. Nf3 {White develops.}
+ 5... c5 {Attack the center at its base.})
+3... Nxd5 {Recapture.}
+4. Bc4 {White hits the knight.}
+4... Nb6 {The knight retreats with tempo.}
+5. Bb3 {The bishop retreats.}
+5... Nc6 {Develop.}
+6. Nf3 {White develops.}
+6... Bf5 {Develop the bishop outside the pawn chain.}
+7. a4 {White threatens a5 to chase your knight.}
+7... Na5 {Go after the b3 bishop.}
+8. Ba2 {The bishop retreats.}
+8... e6 {Solid development: you are fine.}
+`,
+    plans: [
+      'Against 2.Nc3, ...d5 gives an easy game.',
+      'When White chases the knight (c4, c5), bring it back to d5 and trade it on c3.',
+      'Overextended pawns (c5, e5) are targets: attack them with pieces.',
+    ],
+  },
+
+  // ------------------------------------------------------------------ Black vs 1.d4: QGD setup
+  {
+    id: 'qgd-main',
+    section: 'black-d4',
+    title: "Queen's Gambit Declined (2.c4)",
+    you: 'b',
+    summary: 'Your setup: ...Nf6, ...e6, ...d5, ...Be7, ...O-O. Against Bg5, the Lasker idea ...h6 and ...Ne4 trades pieces and frees your position.',
+    pgn: `
+1. d4 {White takes the center.}
+1... Nf6 {Develop and control e4.}
+2. c4 {The Queen's Gambit setup.}
+2... e6 {Prepares ...d5 and frees the f8 bishop.}
+3. Nc3 {White develops and supports e4.}
+(3. Nf3 {White develops the other knight.}
+ 3... d5 {Take the center.} 4. Nc3 {White develops.} 4... Be7 {Develop, ready to castle.}
+ 5. Bg5 {White pins the f6 knight.} 5... O-O {You castle.} 6. e3 {White develops.}
+ 6... h6 {Ask the bishop.} 7. Bh4 {The bishop keeps the pin.}
+ 7... Ne4 {The Lasker idea: the knight jumps forward and forces trades.}
+ 8. Bxe7 {White trades bishops.} 8... Qxe7 {Recapture: your position is freer.})
+3... d5 {The Queen's Gambit Declined: you hold the center.}
+4. Bg5 {The classical main line: White pins the f6 knight.}
+(4. cxd5 {The Exchange Variation.}
+ 4... exd5 {Recapture: your light-squared bishop's diagonal opens.}
+ 5. Bg5 {White pins the knight.} 5... c6 {Supports d5 and gives the queen b6 and a5.}
+ 6. e3 {White develops.} 6... Be7 {Unpin.} 7. Bd3 {White develops.}
+ 7... Nbd7 {Develop.} 8. Qc2 {White prepares to castle long or attack.}
+ 8... O-O {You castle: a solid, sound position.})
+(4. Nf3 {White develops.}
+ 4... Be7 {Develop.} 5. Bf4 {The Bf4 line: the bishop goes outside the pawn chain.}
+ 5... O-O {You castle.} 6. e3 {White develops.}
+ 6... c5 {Strike back in the center: the main answer to Bf4.}
+ 7. dxc5 {White takes.} 7... Bxc5 {Recapture: active pieces, equal game.})
+4... Be7 {Unpin: the bishop protects the knight.}
+5. e3 {White develops.}
+5... O-O {You castle.}
+6. Nf3 {White develops.}
+6... h6 {Ask the bishop to decide.}
+7. Bh4 {The bishop keeps the pin.}
+7... Ne4 {The Lasker Defense: the knight forces trades and frees your cramped position.}
+8. Bxe7 {White trades bishops.}
+8... Qxe7 {Recapture.}
+9. cxd5 {White takes on d5.}
+9... Nxc3 {Trade the knights first.}
+10. bxc3 {White recaptures.}
+10... exd5 {Recapture: a solid, equal position with fewer pieces to worry about.}
+`,
+    plans: [
+      'Your setup is the same against everything: ...Nf6, ...e6, ...d5, ...Be7, ...O-O.',
+      'Against Bg5, ...h6 and ...Ne4 (the Lasker idea) trade pieces and free your position.',
+      'Your problem piece is the c8 bishop: free it with ...b6 and ...Bb7, or after cxd5 exd5.',
+      'Against Bf4, strike back with ...c5.',
+    ],
+    traps: ['elephant-trap'],
+  },
+  {
+    id: 'qgd-london',
+    section: 'black-d4',
+    title: 'Against the London System (Bf4)',
+    you: 'b',
+    summary: 'Many players at your level play the London: d4, Bf4, e3, c3. Answer with ...d5, ...e6, ...c5 and ...Bd6 to trade the strong f4 bishop.',
+    pgn: `
+1. d4 {White takes the center.}
+1... Nf6 {Develop.}
+2. Bf4 {The London System: the bishop goes out before e3.}
+(2. Nf3 {White develops first.}
+ 2... d5 {Take the center.} 3. Bf4 {Now the London.} 3... e6 {Your setup.}
+ 4. e3 {White supports d4.} 4... c5 {Strike at d4.}
+ 5. c3 {White supports d4.} 5... Nc6 {Pressure on d4.}
+ 6. Nbd2 {White develops.} 6... Bd6 {Challenge the f4 bishop.}
+ 7. Bg3 {White keeps the bishop.} 7... O-O {You castle.}
+ 8. Bd3 {White develops.} 8... b6 {Prepares ...Bb7: your last piece comes out.})
+2... d5 {Take the center.}
+3. e3 {White supports d4.}
+3... e6 {Your usual setup.}
+4. Nf3 {White develops.}
+4... c5 {Strike at d4: the best way to fight the London.}
+5. c3 {White supports d4.}
+5... Nc6 {Pressure on d4.}
+6. Nbd2 {White develops.}
+6... Bd6 {Challenge the f4 bishop, White's best piece.}
+7. Bg3 {White avoids the trade.}
+7... O-O {You castle.}
+8. Bd3 {White develops.}
+8... b6 {Prepares ...Bb7.}
+9. Ne5 {A typical London move: the knight jumps to e5.}
+9... Bb7 {Develop your last piece: balanced position.}
+`,
+    plans: [
+      'Against the London, play ...c5: it hits d4 and opens lines for your pieces.',
+      'Trade the f4 bishop with ...Bd6 when you can: it is White’s best piece.',
+      'Finish development with ...b6 and ...Bb7.',
+    ],
+  },
+  {
+    id: 'qgd-catalan',
+    section: 'black-d4',
+    title: 'Against the Catalan (g3)',
+    you: 'b',
+    summary: 'The mirror of your White system. Take on c4, then free the queenside with ...a6, ...b5 and ...Bb7 — and remember the trap you know as White.',
+    pgn: `
+1. d4 {White takes the center.}
+1... Nf6 {Develop.}
+2. c4 {White gains space.}
+2... e6 {Your setup.}
+3. g3 {The Catalan: the bishop will go to g2.}
+3... d5 {Take the center.}
+4. Bg2 {The bishop on the long diagonal.}
+(4. Nf3 {White develops first.}
+ 4... Be7 {Develop.} 5. Bg2 {The bishop.} 5... O-O {You castle.}
+ 6. O-O {White castles.} 6... dxc4 {Take the pawn, as in the main line.})
+4... Be7 {Develop.}
+5. Nf3 {White develops.}
+5... O-O {You castle.}
+6. O-O {White castles.}
+6... dxc4 {Take the pawn: the Open Catalan.}
+7. Qc2 {White will win the pawn back.}
+7... a6 {Prepares ...b5 — but never with ...c6: that is the trap you set as White!}
+8. Qxc4 {White wins the pawn back.}
+8... b5 {Gain space with tempo.}
+9. Qc2 {The queen retreats.}
+9... Bb7 {Fight for the long diagonal: your bishop faces White's g2 bishop. Balanced.}
+`,
+    plans: [
+      'Take on c4, then use the time to free your queenside: ...a6, ...b5, ...Bb7.',
+      "Don't defend c4 with ...b5 and ...c6: the long diagonal opens and the a8 rook falls (see the trap).",
+      'Your b7 bishop must fight White’s g2 bishop on the long diagonal.',
+    ],
+    traps: ['catalan-c6'],
+  },
 ];

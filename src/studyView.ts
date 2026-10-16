@@ -184,7 +184,8 @@ export class StudyView {
         .map(id => TRAPS.find(t => t.id === id))
         .filter((t): t is Trap => !!t)
         .map(t => {
-          const a = h('a', '', `${t.title} (${t.role === 'set' ? 'trap to set' : 'trap to avoid'})`) as HTMLAnchorElement;
+          // no "to set / to avoid" here: that depends on the side, and the chapter may show the other one
+          const a = h('a', '', `${t.title} — ${t.opening}`) as HTMLAnchorElement;
           a.href = `#study/${t.id}`;
           return h('li', '', a);
         });

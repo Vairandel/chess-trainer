@@ -68,7 +68,9 @@ flowchart TD
   - Part 1 (built, waiting for approval): 14 traps — 3 in Randi's openings (Alekhine ×2, Catalan setup) and 11 classics — each with a comment on every move, the right move as a variation, ✓ Do / ✗ Don't, and "Test yourself". Every line is checked by Stockfish in `src/study/traps.test.ts` (the mistake costs, the trap wins, the recommended moves hold).
   - Part 2: opening chapters with Learn + Practice (an opening trainer: you play your side from memory; the computer plays the opponent along one line at a time; moves outside the repertoire are judged by the engine as playable or a mistake; progress per line, with lines missed coming back first). Every repertoire move is checked by Stockfish in `src/study/openings.test.ts` (within 0.5 pawn of the best, or a simpler move keeping +0.8).
     - White repertoire (done): Catalan vs ...d5/...e6; vs ...d5 and ...c5 (play c4 — Tarrasch with g3; 3.c3 is passive and e4 must be prepared); vs 1...c5 (the c3 plan, but d4 at once vs ...d5); vs the King's Indian setup.
-    - Next: Black vs 1.e4 (Alekhine), Black vs 1.d4 (Queen's Gambit Declined setup), then legendary games.
+    - Black vs 1.e4, Alekhine (done): Modern 4.Nf3 with ...g6 (vs 5.Bc4/c4/Be2/Ng5, and 7.Ng5 met by ...d5); 4.c4 Exchange and Four Pawns (...f6 break); sidelines 2.Nc3, Chase, 3.Nc3, 3.Bc4, 2.d3.
+    - Black vs 1.d4, QGD setup (done): 2.c4 with Bg5 (Lasker ...h6/...Ne4), Exchange and Bf4 (...c5); the London (...c5, ...Bd6); the Catalan (...dxc4, ...a6, ...b5, ...Bb7, never ...c6).
+    - Next: legendary games; more chapters on request (Randi's own trap list, lost games).
 - [ ] **Phase 3 — Study library + play mode**: annotated traps/openings/legendary games, adjustable computer opponent
 - [ ] **Phase 4 — Puzzles**: themed tactics trainer
 
