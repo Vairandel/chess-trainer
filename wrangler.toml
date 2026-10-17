@@ -1,0 +1,7 @@
+name = "chess-trainer"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-08-15"
+
+# Deploy (only from an approved, pushed main):
+#   npm run build && wrangler pages deploy
+# The site is served at chess.randivague.org (custom domain set on the Pages project).

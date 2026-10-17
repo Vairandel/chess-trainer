@@ -4,14 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chess Trainer</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♟</text></svg>" />
-    <script>
-      // Apply the saved light/dark choice before the page paints, so it never flashes the other theme.
-      try {
-        const theme = JSON.parse(localStorage.getItem('chess-trainer:settings') || '{}').theme;
-        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-      } catch {}
-    </script>
+    <meta name="description" content="A personal chess trainer: analyze your games, study openings, traps and famous games, solve puzzles, play the computer." />
+    <meta name="theme-color" content="#6f8f3a" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Chess Trainer" />
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <header class="top">

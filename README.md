@@ -11,6 +11,20 @@ npm test         # rules and PGN tests
 npm run build    # production files in dist/
 ```
 
+## Online
+
+The site is a Cloudflare Pages project (`wrangler.toml`), served at chess.randivague.org:
+
+```sh
+npm run build
+wrangler pages dev dist --port 8788   # the production build locally, with the headers from public/_headers
+wrangler pages deploy                 # publish (only an approved, pushed main)
+```
+
+- `public/_headers`: security headers, Content-Security-Policy and caching.
+- `public/manifest.webmanifest` and `public/icons/`: the installable app. `scripts/make-icons.mjs` renders the PNG icons from the SVGs.
+- `vite.config.ts` writes `dist/sw.js` from `scripts/sw-template.js`: the service worker that keeps the app usable offline. `src/pwa.ts` registers it and offers to reload when a new version is ready.
+
 ## Code
 
 - `src/game.ts`: the game model. It holds the move tree (main line and variations), the current position, PGN import/export with variations, and the game status, on top of [chess.js](https://github.com/jhlywa/chess.js).

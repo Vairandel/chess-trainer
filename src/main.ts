@@ -30,6 +30,7 @@ import {
 } from './settings';
 import { PlayView } from './play';
 import { PuzzleView } from './puzzleView';
+import { registerServiceWorker } from './pwa';
 import { StudyView } from './studyView';
 import { explainMove } from './teach';
 
@@ -860,3 +861,4 @@ window.addEventListener('hashchange', route);
 // the last live evaluations are still waiting in persistSoon's timer
 document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && persist());
 route();
+registerServiceWorker();

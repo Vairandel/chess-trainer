@@ -79,6 +79,9 @@ flowchart TD
 - [x] **Phase 4 — Puzzles**: themed tactics trainer — *approved 2026-10-16*
   - 1,150 puzzles chosen from the Lichess puzzle database (CC0, 6.2M puzzles): rated 900–2100, well tested (RD ≤ 80, popularity ≥ 85, ≥ 2000 plays), about 6 per 100 rating points in each of 16 themes. Selection script: `scripts/select-puzzles.mjs`. Every solution is replayed with chess.js; a sample of 40 is checked against Stockfish in `src/puzzles/data.test.ts`.
   - Training by theme (with the idea of each theme), an Elo puzzle rating (K = 40 for the first 20 puzzles, then 20), missed puzzles (wrong move, hint or solution shown) coming back as unrated reviews after 5 others. Any checkmating move is accepted, as on Lichess.
+- [ ] **Phase 5 — Online, installable, with profiles**
+  - 5A (built, waiting for approval): Cloudflare Pages project `chess-trainer` (`wrangler.toml`), served at `chess.randivague.org`. Security headers and a strict Content-Security-Policy in `public/_headers` (no inline scripts: the early theme script is `public/theme-init.js`; `'wasm-unsafe-eval'` only for Stockfish). Installable on phones (`manifest.webmanifest`, icons rendered from SVG by `scripts/make-icons.mjs`). A service worker generated at build time (`vite.config.ts` + `scripts/sw-template.js`) keeps the app, the engine and all piece sets offline; the page is network-first, and a "New version — Reload" bar appears when an update is downloaded.
+  - 5B (next): Netflix-style profiles — created only by the owner from an admin page (profile limit set there, default 5), each locked by a 4-digit PIN with lockout, synced across devices through Pages Functions + D1; Guest keeps working locally as today.
 
 **Rule:** each phase must be tested and approved by Randi before starting the next. The current version is the stable base — never rebuild from scratch.
 
