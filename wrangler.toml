@@ -9,7 +9,7 @@ compatibility_date = "2026-08-15"
 [[d1_databases]]
 binding = "DB"
 database_name = "chess-trainer"
-database_id = "00000000-0000-0000-0000-000000000000" # replaced by the real id when the database is created
+database_id = "5b21288b-fb29-44a7-b740-d325458d3d9a"
 migrations_dir = "migrations"
 
 # Deploy (only from an approved, pushed main):
