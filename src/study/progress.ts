@@ -1,19 +1,20 @@
 import { Game, type MoveNode } from '../game';
 import type { OpeningChapter } from './openings';
 import { allLines, learnedCount, lineKey, type ChapterProgress } from './trainer';
+import { store } from '../store';
 
-/** Study progress kept in this browser: opening lines, traps studied, and the last chapter opened. */
+/** Study progress (in the app's store): opening lines, traps studied, game scores, and the last chapter opened. */
 
-const PROGRESS_KEY = 'chess-trainer:openings';
-const STUDIED_KEY = 'chess-trainer:traps-studied';
-const LAST_KEY = 'chess-trainer:last-chapter';
-const GUESS_KEY = 'chess-trainer:guess-best';
+const PROGRESS_KEY = 'openings';
+const STUDIED_KEY = 'traps-studied';
+const LAST_KEY = 'last-chapter';
+const GUESS_KEY = 'guess-best';
 
 export type Status = 'new' | 'started' | 'done';
 
 function read<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = store.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -22,7 +23,7 @@ function read<T>(key: string, fallback: T): T {
 
 function write(key: string, value: unknown): void {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    store.setItem(key, JSON.stringify(value));
   } catch {
     // storage unavailable: progress lasts until the page is closed
   }

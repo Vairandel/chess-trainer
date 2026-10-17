@@ -2,6 +2,16 @@ name = "chess-trainer"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-08-15"
 
+# Profiles (functions/api/): the D1 database, created with `wrangler d1 create chess-trainer`.
+# Local runs (wrangler pages dev) use a local copy; set up with:
+#   wrangler d1 migrations apply chess-trainer --local
+# Secrets: ADMIN_PASSWORD and PIN_PEPPER (`wrangler pages secret put ...`; locally in .dev.vars, not committed).
+[[d1_databases]]
+binding = "DB"
+database_name = "chess-trainer"
+database_id = "00000000-0000-0000-0000-000000000000" # replaced by the real id when the database is created
+migrations_dir = "migrations"
+
 # Deploy (only from an approved, pushed main):
 #   npm run build && wrangler pages deploy
 # The site is served at chess.randivague.org (custom domain set on the Pages project).

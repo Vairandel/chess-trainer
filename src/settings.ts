@@ -1,3 +1,4 @@
+import { store } from './store';
 /** Appearance settings, kept in this browser. */
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
@@ -48,7 +49,7 @@ export const ACCENTS: { id: string; name: string; light: string; dark: string }[
   { id: 'teal', name: 'Teal', light: '#1f7a72', dark: '#4fb8ad' },
 ];
 
-const KEY = 'chess-trainer:settings';
+const KEY = 'settings';
 
 export const DEFAULTS: Settings = {
   theme: 'system',
@@ -61,7 +62,7 @@ export const DEFAULTS: Settings = {
 
 export function loadSettings(): Settings {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = store.getItem(KEY);
     const saved = raw ? (JSON.parse(raw) as Partial<Settings>) : {};
     return { ...DEFAULTS, ...saved, customBoard: { ...DEFAULTS.customBoard, ...saved.customBoard } };
   } catch {
@@ -71,7 +72,7 @@ export function loadSettings(): Settings {
 
 export function saveSettings(settings: Settings): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(settings));
+    store.setItem(KEY, JSON.stringify(settings));
   } catch {
     // storage unavailable: the choice lasts until the page is closed
   }

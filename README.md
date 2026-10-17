@@ -7,7 +7,7 @@ A personal chess training app. The plan and roadmap are in [docs/PROJECT.md](doc
 ```sh
 npm install
 npm run dev      # open the URL it prints
-npm test         # rules and PGN tests
+npm test         # all tests (rules, engine, study content, server)
 npm run build    # production files in dist/
 ```
 
@@ -24,6 +24,31 @@ wrangler pages deploy                 # publish (only an approved, pushed main)
 - `public/_headers`: security headers, Content-Security-Policy and caching.
 - `public/manifest.webmanifest` and `public/icons/`: the installable app. `scripts/make-icons.mjs` renders the PNG icons from the SVGs.
 - `vite.config.ts` writes `dist/sw.js` from `scripts/sw-template.js`: the service worker that keeps the app usable offline. `src/pwa.ts` registers it and offers to reload when a new version is ready.
+
+### Profiles (server)
+
+`functions/api/` (Cloudflare Pages Functions) and a D1 database (`migrations/`) hold the profiles and their synced data. To run them locally:
+
+```sh
+# .dev.vars (not committed) holds the local secrets:
+#   ADMIN_PASSWORD="..."
+#   PIN_PEPPER="..."
+wrangler d1 migrations apply chess-trainer --local
+npm run build && wrangler pages dev dist --port 8788
+```
+
+Online, the database and secrets are created once:
+
+```sh
+wrangler d1 create chess-trainer                      # put its id in wrangler.toml
+wrangler d1 migrations apply chess-trainer --remote
+wrangler pages secret put ADMIN_PASSWORD --project-name chess-trainer
+wrangler pages secret put PIN_PEPPER --project-name chess-trainer
+```
+
+- `src/store.ts`: the app's storage (Guest: this browser; a profile: an offline copy synced with the server).
+- `src/boot.ts` and `src/profiles.ts`: the "Who's training?" picker, PIN keypad and account menu, before the app starts.
+- `src/adminView.ts`: the admin page (`#admin`). `src/api.ts`: calls to the server. `src/profileOptions.ts`: rules shared with the server.
 
 ## Code
 

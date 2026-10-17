@@ -7,6 +7,7 @@ import '@lichess-org/chessground/assets/chessground.base.css';
 import '@lichess-org/chessground/assets/chessground.brown.css';
 import '@lichess-org/chessground/assets/chessground.cburnett.css';
 import './style.css';
+import { AdminView } from './adminView';
 import { Analyzer, type AnalyzedMove } from './analyzer';
 import { moveBadge } from './badges';
 import { $, askPromotion, h, img, toast } from './dom';
@@ -33,6 +34,7 @@ import { PuzzleView } from './puzzleView';
 import { registerServiceWorker } from './pwa';
 import { StudyView } from './studyView';
 import { explainMove } from './teach';
+import { store } from './store';
 
 let settings = loadSettings();
 applySettings(settings);
@@ -181,14 +183,15 @@ function requestLiveEvaluation(): void {
 
 // ---------- views ----------
 
-type View = 'games' | 'review' | 'study' | 'puzzles' | 'play' | 'settings';
-const VIEWS: View[] = ['games', 'review', 'study', 'puzzles', 'play', 'settings'];
+type View = 'games' | 'review' | 'study' | 'puzzles' | 'play' | 'settings' | 'admin';
+const VIEWS: View[] = ['games', 'review', 'study', 'puzzles', 'play', 'settings', 'admin'];
 let currentView: View = 'games';
 
 /** The Play and Study pages have their own boards; they are created the first time they are opened. */
 let playView: PlayView | undefined;
 let studyView: StudyView | undefined;
 let puzzleView: PuzzleView | undefined;
+let adminView: AdminView | undefined;
 
 function route(): void {
   // "#study/fried-liver" → view "study", argument "fried-liver"
@@ -206,6 +209,9 @@ function route(): void {
     render();
   } else if (currentView === 'settings') {
     renderSettings();
+  } else if (currentView === 'admin') {
+    adminView ??= new AdminView($('view-admin'));
+    void adminView.show();
   } else if (currentView === 'puzzles') {
     puzzleView ??= new PuzzleView({ coordinates: settings.coordinates });
     void puzzleView.show();
@@ -823,14 +829,14 @@ $('copy-pgn').addEventListener('click', async () => {
 
 const depthSelect = $<HTMLSelectElement>('depth');
 try {
-  const saved = localStorage.getItem('analysis-depth');
+  const saved = store.getItem('analysis-depth');
   if (saved && [...depthSelect.options].some(o => o.value === saved)) depthSelect.value = saved;
 } catch {
   // storage unavailable: keep the default
 }
 depthSelect.addEventListener('change', () => {
   try {
-    localStorage.setItem('analysis-depth', depthSelect.value);
+    store.setItem('analysis-depth', depthSelect.value);
   } catch {
     // not saved, that's fine
   }

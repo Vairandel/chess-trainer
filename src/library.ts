@@ -1,4 +1,5 @@
 import type { PositionEval } from './review';
+import { store } from './store';
 
 /** A game saved in "My games". */
 export interface SavedGame {
@@ -15,17 +16,17 @@ export interface SavedGame {
   accuracy?: { w: number; b: number };
 }
 
-const GAMES_KEY = 'chess-trainer:games';
-const evalsKey = (id: string) => `chess-trainer:evals:${id}`;
+const GAMES_KEY = 'games';
+const evalsKey = (id: string) => `evals:${id}`;
 
 /**
- * Saved games and their analysis, kept in this browser's localStorage.
+ * Saved games and their analysis, kept in the app's store (this browser, plus the profile's sync).
  * Storage can be missing or full (private windows, blocked site data); every call copes with that.
  */
 export class Library {
   list(): SavedGame[] {
     try {
-      const raw = localStorage.getItem(GAMES_KEY);
+      const raw = store.getItem(GAMES_KEY);
       const games = raw ? (JSON.parse(raw) as SavedGame[]) : [];
       return Array.isArray(games) ? games : [];
     } catch {
@@ -58,7 +59,7 @@ export class Library {
   remove(id: string): void {
     this.write(this.list().filter(g => g.id !== id));
     try {
-      localStorage.removeItem(evalsKey(id));
+      store.removeItem(evalsKey(id));
     } catch {
       // nothing stored, or storage unavailable
     }
@@ -76,7 +77,7 @@ export class Library {
 
   saveEvals(id: string, evals: PositionEval[]): void {
     try {
-      localStorage.setItem(evalsKey(id), JSON.stringify(evals));
+      store.setItem(evalsKey(id), JSON.stringify(evals));
     } catch {
       // storage full: the analysis just won't be remembered
     }
@@ -84,7 +85,7 @@ export class Library {
 
   loadEvals(id: string): PositionEval[] {
     try {
-      const raw = localStorage.getItem(evalsKey(id));
+      const raw = store.getItem(evalsKey(id));
       return raw ? (JSON.parse(raw) as PositionEval[]) : [];
     } catch {
       return [];
@@ -93,7 +94,7 @@ export class Library {
 
   private write(games: SavedGame[]): void {
     try {
-      localStorage.setItem(GAMES_KEY, JSON.stringify(games));
+      store.setItem(GAMES_KEY, JSON.stringify(games));
     } catch {
       throw new Error('Your browser would not save the games (storage is full or blocked).');
     }

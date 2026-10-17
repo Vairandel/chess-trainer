@@ -7,8 +7,9 @@ import { $, askPromotion, h } from './dom';
 import type { PromotionPiece } from './game';
 import { THEMES } from './puzzles/themes';
 import { isCorrectMove, newState, parsePuzzles, pickPuzzle, recordResult, type Puzzle, type PuzzleRow, type PuzzleState } from './puzzles/trainer';
+import { store } from './store';
 
-const KEY = 'chess-trainer:puzzles';
+const KEY = 'puzzles';
 /** The opponent's moves wait this long, so they can be followed. */
 const REPLY_MS = 500;
 
@@ -293,7 +294,7 @@ export class PuzzleView {
 
   private save(): void {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ state: this.state, theme: this.theme }));
+      store.setItem(KEY, JSON.stringify({ state: this.state, theme: this.theme }));
     } catch {
       // not saved: progress lasts until the page is closed
     }
@@ -302,7 +303,7 @@ export class PuzzleView {
 
 function load(): { state: PuzzleState; theme: string } {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = store.getItem(KEY);
     if (raw) {
       const data = JSON.parse(raw) as { state: PuzzleState; theme: string };
       return { state: { ...newState(), ...data.state }, theme: data.theme ?? 'mixed' };

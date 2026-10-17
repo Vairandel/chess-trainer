@@ -222,9 +222,19 @@
           <span class="glyph mistake">?</span>
           <span class="glyph blunder">??</span>
         </div>
-        <p class="muted">Changes apply at once and are saved in this browser.</p>
+        <p class="muted">Changes apply at once and are saved with your profile (or in this browser, as Guest).</p>
+      </section>
+
+      <section class="card profile-card" id="profile-card" aria-labelledby="profile-title" hidden>
+        <h2 id="profile-title">Profile</h2>
+        <p id="profile-info"></p>
+        <p class="muted">Profiles are created by the site's owner.</p>
+        <a class="button" href="#admin">Admin page</a>
       </section>
     </main>
+
+    <!-- ========== Admin (profiles) ========== -->
+    <main class="view admin-view" id="view-admin" hidden></main>
 
     <!-- ========== My games ========== -->
     <main class="view games-view" id="view-games" hidden>
@@ -323,6 +333,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/boot.ts"></script>
   </body>
 </html>

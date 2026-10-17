@@ -14,7 +14,9 @@ export function registerServiceWorker(): void {
     reloading = true;
     location.reload();
   });
-  window.addEventListener('load', async () => {
+  // the app starts after the profile check (boot.ts), often after "load" has fired
+  const whenLoaded = (run: () => void) => (document.readyState === 'complete' ? run() : window.addEventListener('load', run));
+  whenLoaded(async () => {
     try {
       const reg = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
       if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);

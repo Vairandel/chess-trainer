@@ -6,6 +6,7 @@ import { $, askPromotion, h, toast } from './dom';
 import type { Engine } from './engine';
 import { Game, type PromotionPiece } from './game';
 import { describeElo, Opponent } from './opponent';
+import { store } from './store';
 
 /** What is kept in the browser while a game is in progress. */
 interface SavedPlay {
@@ -16,7 +17,7 @@ interface SavedPlay {
   over?: string;
 }
 
-const KEY = 'chess-trainer:play';
+const KEY = 'play';
 /** The computer never answers faster than this, so its moves can be followed. */
 const MIN_THINK_MS = 600;
 
@@ -298,7 +299,7 @@ export class PlayView {
     if (!this.playing) return;
     const data: SavedPlay = { pgn: this.game.pgn(), color: this.color, elo: this.elo, hints: this.hints, over: this.over };
     try {
-      localStorage.setItem(KEY, JSON.stringify(data));
+      store.setItem(KEY, JSON.stringify(data));
     } catch {
       // not saved; the game still goes on
     }
@@ -306,7 +307,7 @@ export class PlayView {
 
   private clearSaved(): void {
     try {
-      localStorage.removeItem(KEY);
+      store.removeItem(KEY);
     } catch {
       // nothing to clear
     }
@@ -314,7 +315,7 @@ export class PlayView {
 
   private restore(): void {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = store.getItem(KEY);
       if (!raw) return;
       const data = JSON.parse(raw) as SavedPlay;
       this.game.loadPgn(data.pgn);
