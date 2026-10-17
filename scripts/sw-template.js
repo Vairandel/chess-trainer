@@ -25,10 +25,29 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Something shared with the app from another app's share menu (manifest "share_target"):
+// kept in the "share-inbox" cache, then the app opens on #games/shared and imports it (src/share.ts).
+async function receiveShare(request) {
+  const form = await request.formData();
+  const parts = [];
+  for (const file of form.getAll('pgn')) if (file && typeof file !== 'string') parts.push(await file.text());
+  for (const field of ['text', 'title', 'url']) {
+    const value = form.get(field);
+    if (typeof value === 'string' && value.trim()) parts.push(value);
+  }
+  const inbox = await caches.open('share-inbox');
+  await inbox.put('/__shared', new Response(JSON.stringify({ parts }), { headers: { 'Content-Type': 'application/json' } }));
+  return Response.redirect('/#games/shared', 303);
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
-  if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  if (request.method === 'POST' && url.origin === self.location.origin && url.pathname === '/share-target') {
+    event.respondWith(receiveShare(request));
+    return;
+  }
+  if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {

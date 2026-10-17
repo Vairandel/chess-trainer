@@ -32,6 +32,7 @@ import {
 import { PlayView } from './play';
 import { PuzzleView } from './puzzleView';
 import { registerServiceWorker } from './pwa';
+import { takeShared } from './share';
 import { StudyView } from './studyView';
 import { explainMove } from './teach';
 import { store } from './store';
@@ -231,6 +232,19 @@ function route(): void {
     playView.show();
   } else {
     renderLibrary();
+    if (arg === 'shared') void receiveShared();
+  }
+}
+
+/** A PGN shared from another app (Android share menu → Chess Trainer): imported like a pasted one. */
+async function receiveShared(): Promise<void> {
+  history.replaceState(null, '', '#games');
+  const shared = await takeShared().catch(() => ({ kind: 'nothing' }) as const);
+  if (shared.kind === 'pgn') {
+    addGames(shared.pgn);
+  } else if (shared.kind === 'link') {
+    importError.textContent =
+      'Only a link to the game was shared, not its PGN. In the chess.com app, choose Share → PGN (or copy the PGN and tap Paste).';
   }
 }
 
@@ -470,6 +484,22 @@ function addGames(text: string): void {
 $('import-form').addEventListener('submit', e => {
   e.preventDefault();
   addGames(pgnText.value);
+});
+// one tap instead of long-press → Paste (handy on phones, e.g. after "Copy PGN" in chess.com)
+$('pgn-paste').addEventListener('click', async () => {
+  let text = '';
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    importError.textContent = 'The browser did not allow reading the clipboard: long-press the box and choose Paste.';
+    return;
+  }
+  if (!text.trim()) {
+    importError.textContent = 'The clipboard is empty: copy a PGN first.';
+    return;
+  }
+  pgnText.value = text;
+  addGames(text);
 });
 $<HTMLInputElement>('pgn-file').addEventListener('change', async e => {
   const input = e.target as HTMLInputElement;

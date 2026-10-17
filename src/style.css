@@ -1710,6 +1710,15 @@ dialog::backdrop {
 .file-btn input {
   display: none;
 }
+#pgn-paste {
+  font-size: 14px;
+}
+/* phones have nothing to drag and drop */
+@media (hover: none) {
+  .drop-hint {
+    display: none;
+  }
+}
 .muted {
   color: var(--muted);
   font-size: 13px;

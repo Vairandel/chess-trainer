@@ -48,6 +48,7 @@ wrangler pages secret put PIN_PEPPER --project-name chess-trainer
 
 - `src/store.ts`: the app's storage (Guest: this browser; a profile: an offline copy synced with the server).
 - `src/boot.ts` and `src/profiles.ts`: the "Who's training?" picker, PIN keypad and account menu, before the app starts.
+- `src/share.ts`: PGNs shared from other apps (Android share menu), received by the service worker.
 - `src/adminView.ts`: the admin page (`#admin`). `src/api.ts`: calls to the server. `src/profileOptions.ts`: rules shared with the server.
 
 ## Code
